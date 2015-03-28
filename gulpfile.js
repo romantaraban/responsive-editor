@@ -24,7 +24,7 @@ var sassPath = './source/scss/*/*.scss';
 var testPath = './test/test.js';
 
 // settings
-var ingnoreLint = true;
+var ingnoreLint = false;
 var ingnoreTests = true;
 var runBrowserTest = true;
 

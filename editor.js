@@ -1,55 +1,80 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
-
+/*
 function configCKEDITOR() {
-//  CKEDITOR.stylesSet.add('my_custom_style', [
-//      // Inline styles.
-//    {
-//      name: 'button',
-//      element: 'span',
-//      attributes: {
-//        'class': 'button'
-//      }
-//    },
-//    {
-//      name: 'note text',
-//      element: 'p',
-//      attributes: {
-//        'class': 'note-text'
-//      }
-//    },
-//    {
-//      name: 'text priority',
-//      element: 'p',
-//      attributes: {
-//        'class': 'priority-block'
-//      }
-//    },
-//    {
-//      name: 'marker black',
-//      element: 'ul',
-//      attributes: {
-//        'class': 'black-marker'
-//      }
-//    },
-//    {
-//      name: 'clear both',
-//      element: 'p',
-//      attributes: {
-//        'class': 'clear-both'
-//      }
-//    }
-//  ]);
+  CKEDITOR.stylesSet.add('my_custom_style', [
+      // Inline styles.
+    {
+      name: 'button',
+      element: 'span',
+      attributes: {
+        'class': 'button'
+      }
+    },
+    {
+      name: 'note text',
+      element: 'p',
+      attributes: {
+        'class': 'note-text'
+      }
+    },
+    {
+      name: 'text priority',
+      element: 'p',
+      attributes: {
+        'class': 'priority-block'
+      }
+    },
+    {
+      name: 'marker black',
+      element: 'ul',
+      attributes: {
+        'class': 'black-marker'
+      }
+    },
+    {
+      name: 'clear both',
+      element: 'p',
+      attributes: {
+        'class': 'clear-both'
+      }
+    }
+  ]);
 }
-
+*/
 // get SortableJS if it is already present on page, or require it.
 var Sortable = window.Sortable || require('sortablejs');
 
 var Editor = function(el, data, options) {
-  configCKEDITOR();
+  //configCKEDITOR();
   this.cssPath = options.cssPath;
   //init editor
-  this.initEditor(el);
+  this.colMinSize = 1;
+  this.colNumber = 12;
+  this.currentBreakpoint = 'large';
+  this.frame = document.createElement('iframe');
+  el.appendChild(this.frame);
+
+  this.document = this.frame.contentWindow.document;
+
+  this.frame.style.width = '100%';
+  this.frame.style.border = 'none';
+  this.document.body.style.height = 'auto';
+  this.document.body.innerHTML = '<link rel="stylesheet" href="' + this.cssPath + '">' +
+  '<div id="editor" class="responsive-editor break-' + this.currentBreakpoint + '">' +
+    '<div class="row-add"></div>' +
+  '</div>';
+
+  this.el = this.document.getElementById('editor');
+
+  //init rows;
+  this.rows = new Sortable(this.el, {
+    group: 'rows',
+    handle: '.row-handle',
+    draggable: '.editor-row',
+    ghostClass: 'sortable-ghost'
+  });
+  this.adjustEditorSize();
   this.initHandlers();
   if (data) {
     this.buildFromSerialized(data);
@@ -59,36 +84,6 @@ var Editor = function(el, data, options) {
 };
 
 Editor.prototype = {
-  initEditor: function(holder) {
-    this.colMinSize = 1;
-    this.colNumber = 12;
-    this.currentBreakpoint = 'large';
-    this.frame = document.createElement('iframe');
-    holder.appendChild(this.frame);
-
-    this.document = this.frame.contentWindow.document;
-
-    this.frame.style.width = '100%';
-    this.frame.style.border = 'none';
-    this.document.body.style.height = 'auto';
-    this.document.body.innerHTML = `
-    <link rel="stylesheet" href="${this.cssPath}">
-    <div id="editor" class="responsive-editor break-${this.currentBreakpoint}">
-      <div class="row-add"></div>
-    </div>`;
-
-    this.el = this.document.getElementById('editor');
-
-    //init rows;
-    this.rows = new Sortable(this.el, { 
-      group: 'rows',
-      handle: '.row-handle',
-      draggable: '.editor-row',
-      ghostClass: 'sortable-ghost'
-    });
-    this.adjustEditorSize();
-    
-  },
   adjustEditorSize: function() {
     this.frame.style.height = (Math.max(200, this.el.scrollHeight) + 50) + 'px';
   },
@@ -105,7 +100,6 @@ Editor.prototype = {
       // remove Row;
       if (target.classList.contains('row-remove')) {
         parentElement.parentElement.removeChild(parentElement);
-
       }
 
       // toggle visibility
@@ -207,6 +201,16 @@ Editor.prototype = {
     });
   },
 
+  /**
+   * Remove all content from editor
+   */
+  clear: function() {
+    var rows = this.el.getElementsByClassName('editor-row');
+    while (rows.length) {
+      rows[0].parentElement.removeChild(rows[0]);
+    }
+  },
+
   createRow: function(data) {
     var row = document.createElement('div');
     var rowHandle = document.createElement('div');
@@ -264,7 +268,7 @@ Editor.prototype = {
     }
     row.appendChild(rowCollapse);
     row.appendChild(rowHandle);
-    if (data) { //build few columns from JSON
+    if (data && data.columns) { //build few columns from JSON
       [].forEach.call(data.columns, function(column) {
         row.appendChild(this.createCol(column));
       }.bind(this));
@@ -282,11 +286,16 @@ Editor.prototype = {
     this.el.insertBefore(row, this.el.getElementsByClassName('row-add')[0]);
     this.adjustEditorSize();
   },
+
+  /**
+   * Serialize current state and return.
+   * @param {bool} toJSON
+   **/
   serialize: function(toJSON) {
-    
+
     // serialization function
     function serializeCol(col) {
-      
+
       return {
         content: escape(col.getElementsByClassName('column-content')[0].innerHTML),
         large: col.dataset.large || 1,
@@ -306,7 +315,7 @@ Editor.prototype = {
         columns: []
       };
     }
-    
+
     // go thru rows and columns and serialize theme
     var result = Array.prototype.reduce.call(this.el.getElementsByClassName('editor-row'), function(data, row) {
       var serialized = serializeRow(row);
@@ -315,15 +324,34 @@ Editor.prototype = {
       }, []);
       return data.push(serialized) && data;
     }, []);
-    
+
     return toJSON ? result : JSON.stringify(result);
   },
 
+  /**
+   * Remove previous content and fullfil editor with content based on serialized JSON data object.
+   * @param {object} data
+   **/
   buildFromSerialized: function(data) {
-    [].forEach.call(JSON.parse(data), function(row) {
+    if (!(data instanceof Array)) {
+      try {
+        if (typeof(data) === 'string') {
+          var data = JSON.parse(data);
+        } else {
+          throw new Error('cant parse data')
+        }
+      } catch (error) {
+        console.log(error);
+        return error;
+      }
+    }
+    // remove current data
+    this.clear();
+    data.forEach(function(row) {
       this.createRow(row);
     }.bind(this));
   },
+
   changeBreakpoint: function(breakpoint) {
     this.currentBreakpoint = breakpoint;
     //            this.currentBreakpointIndex = ['small','medium','large'].indexOf(breakpoint);
@@ -359,8 +387,8 @@ Editor.prototype = {
       var startWidth = Number(target.dataset[this.currentBreakpoint] || 1);
       var rigthSide = target.getClientRects()[0].right;
       var resizer = function(event) {
-          //return with limited to inverted size of targetso it can't be scaled in negaivesize.
-          //Set step to 50px
+        //return with limited to inverted size of targetso it can't be scaled in negaivesize.
+        //Set step to 50px
         var additinalSize = Math.max(startWidth * -1, Math.round((event.clientX - rigthSide) / step));
         target.dataset[this.currentBreakpoint] = Math.max(1, startWidth + additinalSize);
 
@@ -392,18 +420,22 @@ Editor.prototype = {
   },
 
   /**
-  * parse serialized data and render it to HTML
-  * if serialized data is empty - retuns empty div tag
-  **/
+   * Parse serialized data and render it to HTML.
+   */
   renderHTML: function() {
     var html = '';
     [].forEach.call(this.serialize(true), function(row) {
       html +=
-        '<div class="row ' + ((row.collapsed) ? 'collapse' : '') + ' ' + row.class + '" ' +
-        'id="' + row.id + '"' +
+        '<div class="row ' + ((row.collapsed) ? 'collapse' : '') + ' ' + row.class + '" id="' + row.id + '"' +
         (row.style ? 'style="' + row.style + '"' : '') + '>';
       [].forEach.call(row.columns, function(column) {
-        html += '<div class="columns' + ((column.large) ? ' large-' + column.large : '') + ((column.medium) ? ' medium-' + column.medium : '') + ((column.small) ? ' small-' + column.small : '') + ((~~column.hideLarge) ? ' hide-for-large' : '') + ((~~column.hideMedium) ? ' hide-for-medium' : '') + ((~~column.hideSmall) ? ' hide-for-small' : '') + '">';
+        html += '<div class="columns' +
+          ((column.large) ? ' large-' + column.large : '') +
+          ((column.medium) ? ' medium-' + column.medium : '') +
+          ((column.small) ? ' small-' + column.small : '') +
+          ((~~column.hideLarge) ? ' hide-for-large' : '') +
+          ((~~column.hideMedium) ? ' hide-for-medium' : '') +
+          ((~~column.hideSmall) ? ' hide-for-small' : '') + '">';
         html += unescape(column.content);
         html += '</div>';
       }.bind(this));
