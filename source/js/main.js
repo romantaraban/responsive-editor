@@ -199,17 +199,6 @@ Editor.prototype = {
 
     });
   },
-
-  /**
-   * Remove all content from editor
-   */
-  clear: function() {
-    var rows = this.el.getElementsByClassName('editor-row');
-    while (rows.length) {
-      rows[0].parentElement.removeChild(rows[0]);
-    }
-  },
-
   createRow: function(data) {
     var row = document.createElement('div');
     var rowHandle = document.createElement('div');
@@ -285,6 +274,16 @@ Editor.prototype = {
     this.el.insertBefore(row, this.el.getElementsByClassName('row-add')[0]);
     this.adjustEditorSize();
   },
+  
+  /**
+   * Remove all content from editor
+   */
+  clear: function() {
+    var rows = this.el.getElementsByClassName('editor-row');
+    while (rows.length) {
+      rows[0].parentElement.removeChild(rows[0]);
+    }
+  },
 
   /**
    * Serialize current state and return.
@@ -344,11 +343,11 @@ Editor.prototype = {
         return error;
       }
     }
-    // remove current data
+    // if we have data - remove current data
     this.clear();
-    data.forEach(function(row) {
-      this.createRow(row);
-    }.bind(this));
+    while (data.length) {
+      this.createRow(data.shift());
+    }
   },
 
   changeBreakpoint: function(breakpoint) {

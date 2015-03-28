@@ -65,9 +65,10 @@ describe('buildFromSerialized', function() {
     editor.clear();
     editor.buildFromSerialized('');
     editor.buildFromSerialized(1);
-//    editor.buildFromSerialized(null);
-//    editor.buildFromSerialized();
-//    editor.buildFromSerialized({});
+    editor.buildFromSerialized(null);
+    editor.buildFromSerialized();
+    editor.buildFromSerialized({});
+    editor.buildFromSerialized(/a[0-9]/);
     assert.equal(0, editor.serialize(true).length);
   }); 
   
