@@ -41,6 +41,9 @@ function configCKEDITOR() {
 //  ]);
 }
 
+// get SortableJS if it is already present on page, or require it.
+var Sortable = window.Sortable || require('sortablejs');
+
 var Editor = function(el, data, options) {
   configCKEDITOR();
   this.cssPath = options.cssPath;
