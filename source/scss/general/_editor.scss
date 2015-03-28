@@ -48,7 +48,7 @@
         }
     }
     &.break-large{
-        max-width: 960px;
+        max-width: calc(100% - 450px); 
         .editor-column{
             &[data-large="1"] {width: 8.33333%;}
             &[data-large="2"] {width: 16.66667%;}
@@ -69,7 +69,7 @@
 .responsive-editor{
     outline: 4px solid #ccc;
     width: 100%;
-    margin: 0 auto 120px auto;
+    margin: 10px auto 120px;
     position: relative;
     .editor-row{
         outline: 1px dotted #ddd;  
@@ -78,19 +78,51 @@
         clear: both;
         //margin-bottom: 24px; 
         position: relative;
-        .row-remove{
+        .row-class-holder {
+            position: absolute;
+            right: calc(100% + 60px);
+            label {
+                padding: 0 10px 0 0;
+            }
+            input {
+                width: 100px;
+            }
+        }
+        .row-style-holder {
+            position: absolute;
+            right: calc(100% + 60px);
+            margin-top: 20px;
+            label {
+                padding: 0 10px 0 0;
+            }
+            input {
+                width: 100px;
+            }
+        }
+        .row-id-holder {
+            position: absolute;
+            right: calc(100% + 60px);
+            margin-top: 40px;
+            label {
+                padding: 0 10px 0 0;
+            }
+            input {
+                width: 100px;
+            }
+        }
+        .row-remove {
             right: 100%;
-            margin-right: 60px;
-            top: #{"calc(50% - 13px)"}; 
+            margin-right: 40px;
+            top: calc(50% - 11px);
             z-index: 100;
         }
-        .row-handle{
+        .row-handle {
             position: absolute;
             left: -20px;
             width: 20px;
             background: #eee;
-            top:16px;
-            height: #{"calc(100% - 32px)"};
+            top: 16px;
+            height: calc(100% - 32px);
             cursor: n-resize;
         }
         [type='checkbox']{
@@ -183,7 +215,18 @@
         text-align: center;
         transform: rotate(45deg);
         cursor:pointer; 
-    } 
+    }
+  .column-hide {
+			position: absolute;
+			background: violet;
+			width: 16px;
+			height: 16px;
+			top: 0;
+			left: 0;
+			&.active {
+				background: blue;
+			}
+		}
     
     //collapsed rows
     [type="checkbox"]:checked ~ .editor-column {

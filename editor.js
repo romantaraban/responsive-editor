@@ -85,7 +85,7 @@ var Editor = function(el, data, options) {
 
 Editor.prototype = {
   adjustEditorSize: function() {
-    this.frame.style.height = (Math.max(200, this.el.scrollHeight) + 50) + 'px';
+    this.frame.style.height = (Math.max(200, this.el.scrollHeight) + 100) + 'px';
   },
   initHandlers: function() {
     //  add listners
@@ -442,6 +442,10 @@ Editor.prototype = {
     }.bind(this));
     return html;
   },
+  
+  /**
+   * Render content to specified html element
+   */
   renderTo: function(target) {
     target.innerHTML = this.renderHTML();
   }

@@ -18,9 +18,9 @@ var lrserver = tinylr();
 var pathToJs = './source/js/';
 var jsEntryPoint = pathToJs + 'main.js';
 var buildPath = './';
-var jsPath = [jsEntryPoint, pathToJs + 'source/*/*.js'];
+var jsPath = [jsEntryPoint, pathToJs + 'source/**/*.js'];
 var cssPath = './';
-var sassPath = './source/scss/*/*.scss';
+var sassPath = './source/scss/**/*.scss';
 var testPath = './test/test.js';
 
 // settings
@@ -101,8 +101,11 @@ gulp.task('build-js', function() {
 // sass compiler
 gulp.task('sass', function() {
   return gulp.src(sassPath)
-    .pipe(sass())
+    .pipe(sass({includePaths:['./node_modules/foundation/scss']}))
     .pipe(gulp.dest(cssPath))
+    .on('error', function(err) {
+      console.log(err);
+    });
 });
 
 // task runner
