@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mocha Test Runner</title>
+    <script src="../ckeditor/ckeditor.js"></script>
+    <script src="../editor.js"></script>
+    <script src="../node_modules/sortablejs/Sortable.js"></script>  
+    
+    <link rel="stylesheet" href="../node_modules/mocha/mocha.css">
+    
+  </head>
+  <body>
+    <div id="mocha"></div>
+    <div id="holder" style=""></div>
+    
+    <script>
+      //init editor
+      var editor = new ResponsiveEditor(document.getElementById('holder'), null, {
+        cssPath: '../editor.css'
+      });
+      
+    </script>
+    <script src="../node_modules/mocha/mocha.js"></script>
+    <script>mocha.setup('bdd')</script>
+    <script src="../node_modules/chai/chai.js"></script>
+    <script src="./test.js"></script>
+    <script>
+      //run tests
+        if (window.mochaPhantomJS) {
+          mochaPhantomJS.run();
+        } else {
+          mocha.run();
+        }
+    </script>  
+  </body>
+</html>

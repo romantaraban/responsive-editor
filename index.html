@@ -1,17 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<!--[if lt IE 7]>      <html class="lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html> <!--<![endif]-->
 <head>
-  <meta charset="UTF-8">
-  <title>Document</title>
-</head>
-<body>
-  <div id="editor"></div>
-  <script src="./node_modules/sortablejs/Sortable.js"></script>
-  <script src="./ckeditor/ckeditor.js"></script>
-  <script src="./editor.js"></script>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <title>Content-editor</title> 
+    
+    <link rel="stylesheet" href="">
+    
+    <script src="./ckeditor/ckeditor.js"></script>
+    <script src="./editor.js"></script>
+    <script src="./node_modules/sortablejs/Sortable.js"></script>  
 
-  <script>
-    var editor = new ResponsiveEditor(document.getElementById('editor'), [], {cssPath:'./editor.css'});
-  </script>
+</head>
+<body> 
+<br>
+<br>  
+
+
+<div id="holder">
+    <form style="text-align:center; margin-bottom:20px;" name="breakpointChange">
+            <input type="radio" value="large" name="breakpoint" id="large" checked> <label for="large">large </label>
+            <input type="radio" value="medium" name="breakpoint" id="medium"> <label for="medium">medium </label>
+            <input type="radio" value="small" name="breakpoint" id="small"> <label for="small">small </label>
+    </form>
+       
+</div>
+
+<form>
+    <textarea style="border:red solid; padding:8px; min-height:100px; margin-top:150px; width:100%" id="console" name="console"></textarea>
+    <button name="serialize">serialize</button>
+    <button name="build">build</button>
+    <button name="render">render</button>
+</form>
+<div id="content"></div>
+<script>
+    var editor = new ResponsiveEditor(document.getElementById('holder'), null, {
+      cssPath: 'editor.css'
+    });
+    document.forms.breakpointChange.onchange=function(){
+        for(var button in document.forms[0].breakpoint){
+            if(document.forms[0].breakpoint[button].checked){
+                var selected = document.forms[0].breakpoint[button].value;
+            }
+        }
+        editor.changeBreakpoint(selected);
+    };
+    document.forms[1].serialize.onclick=function(){
+        event.preventDefault(); 
+        console.log(editor.serialize())
+    };
+    document.forms[1].build.onclick=function(){
+        event.preventDefault();
+        editor.buildFromSerialized( document.forms[1].console.value);
+    };
+    document.forms[1].render.onclick=function(){
+        event.preventDefault();
+        editor.renderTo(document.getElementById('content'));
+    }; 
+
+</script>
 </body>
 </html>
