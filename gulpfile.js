@@ -117,7 +117,6 @@ gulp.task('default', function() {
   gulp.watch(sassPath, ['clean-screen', 'sass']);
   
   gulp.watch(['*.*', './test/*.js'], function(event) {
-    console.log(1)
     return gulp.src(event.path).pipe(refresh(lrserver));
   });
 });
