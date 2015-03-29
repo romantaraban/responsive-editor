@@ -18,7 +18,7 @@ var lrserver = tinylr();
 var pathToJs = './source/js/';
 var jsEntryPoint = pathToJs + 'main.js';
 var buildPath = './';
-var jsPath = [jsEntryPoint, pathToJs + 'source/**/*.js'];
+var jsPath = [jsEntryPoint, pathToJs + '**/*.js'];
 var cssPath = './';
 var sassPath = './source/scss/**/*.scss';
 var testPath = './test/test.js';
@@ -116,7 +116,8 @@ gulp.task('default', function() {
   gulp.watch(testPath, ['clean-screen', 'lint', 'test']);
   gulp.watch(sassPath, ['clean-screen', 'sass']);
   
-  gulp.watch(['*.*', './test/*.js'], function(event) {  
+  gulp.watch(['*.*', './test/*.js'], function(event) {
+    console.log(1)
     return gulp.src(event.path).pipe(refresh(lrserver));
   });
 });
