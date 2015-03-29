@@ -7,6 +7,7 @@
     <title>Mocha Test Runner</title>
     <script src="../ckeditor/ckeditor.js"></script>
     <script src="../editor.js"></script>
+    <script src="../node_modules/jquery/dist/jquery.min.js"></script>
     
     <link rel="stylesheet" href="../node_modules/mocha/mocha.css">
     
@@ -18,7 +19,8 @@
     <script>
       //init editor
       var editor = new ResponsiveEditor(document.getElementById('holder'), [], {
-        cssPath: '../editor.css'
+        cssPath: '../editor.css',
+        useIframe: false
       });
       
     </script>

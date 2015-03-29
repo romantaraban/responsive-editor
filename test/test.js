@@ -1,5 +1,4 @@
 var assert = chai.assert;
-var clickEvent = new Event('click', {bubbles: true, cancelable: true});
 
 describe('clear', function() {
   
@@ -97,20 +96,20 @@ describe('UI', function() {
   describe('Add rows', function() {
     
     it('Button is present on screen', function() {
-      assert.equal(1, editor.el.querySelectorAll('.row-add').length);
+      assert.equal(1, $(editor.el).find('.row-add').length);
     });
     
     it('Click on .row-add should add new row', function() {
       editor.clear();
-      editor.el.querySelector('.row-add').dispatchEvent(clickEvent);
-      assert.equal(1, editor.serialize(true).length);
+      $(editor.el).find('.row-add').click();
+      assert.equal(1, $(editor.el).find('.editor-column').length);
     });
     
     it('Multiple click on .row-add should add multiple rows', function() {
       editor.clear();
-      var button = editor.el.querySelector('.row-add');
-      button.dispatchEvent(clickEvent);
-      button.dispatchEvent(clickEvent);
+      var button = $(editor.el).find('.row-add');
+      button.click();
+      button.click();
       assert.equal(2, editor.serialize(true).length);
     });
     
@@ -121,23 +120,23 @@ describe('UI', function() {
     it('Button is present row', function() {
       editor.clear();
       editor.createRow();
-      assert.equal(1, editor.el.querySelector('.editor-row').querySelectorAll('.row-remove').length)
+      assert.equal(1,  $(editor.el).find('.editor-row .row-remove').length);
     })
     
     it('Click on button removes row', function() {
       editor.clear();
       editor.createRow();
-      var button = editor.el.querySelector('.row-remove').dispatchEvent(clickEvent);
-      assert.equal(0, editor.el.querySelectorAll('.editor-row').length)
+      $(editor.el).find('.row-remove').click();
+      assert.equal(0, $(editor.el).find('.editor-row').length);
     })
     
     it('Click on button removes only parent row', function() {
       editor.clear();
       editor.createRow();
       editor.createRow();
-      editor.el.querySelector('.row-remove').parentElement.classList.add('test-remove-row');
-      var button = editor.el.querySelector('.test-remove-row .row-remove').dispatchEvent(clickEvent);
-      assert.equal(1, editor.el.querySelectorAll('.editor-row').length)
+      $(editor.el).find('.row-remove').last().parent().addClass('test-remove-row');
+      $(editor.el).find('.test-remove-row .row-remove').click();
+      assert.equal(1, $(editor.el).find('.editor-row').length);
     })
     
   });
@@ -146,36 +145,71 @@ describe('UI', function() {
     it('Button is present on screen', function() {
       editor.clear();
       editor.createRow();
-      assert.equal(1, editor.el.querySelectorAll('.column-add').length);
+      assert.equal(1, $(editor.el).find('.column-add').length);
     });
     
     it('Click on button adds one column', function() {
       editor.clear();
       editor.createRow();
-      editor.el.querySelector('.column-add').dispatchEvent(clickEvent);
-      assert.equal(2, editor.el.querySelectorAll('.editor-column').length)
+      $(editor.el).find('.column-add').first().click();
+      assert.equal(2, $(editor.el).find('.editor-column').length);
     })
    
     it('Click on button fee times adds few columns', function() {
       editor.clear();
       editor.createRow();
-      var button = editor.el.querySelector('.column-add')
-      button.dispatchEvent(clickEvent);
-      button.dispatchEvent(clickEvent);
-      assert.equal(3, editor.el.querySelectorAll('.editor-column').length)
+      var button = $(editor.el).find('.column-add')
+      button.first().click();
+      button.first().click();
+      assert.equal(3, $(editor.el).find('.editor-column').length);
     })
     
     it('Click on button create column in parrent columns', function() {
       editor.clear();
       editor.createRow();
       editor.createRow();
-      var rows = editor.el.querySelectorAll('.editor-row');
-      var button = rows[1].querySelector('.column-add');
-      button.dispatchEvent(clickEvent);
-      assert.equal(1, rows[0].querySelectorAll('.editor-column').length)
-      assert.equal(2, rows[1].querySelectorAll('.editor-column').length)
+      var rows = $(editor.el).find('.editor-row');
+      rows.last().find('.column-add').click();
+      assert.equal(1, rows.first().find('.editor-column').length);
+      assert.equal(2, rows.last().find('.editor-column').length);
     })
     
+  });
+  
+  describe('Remove columns', function() {
+    
+    it('Button is present column', function() {
+      editor.clear();
+      editor.createRow();
+      assert.equal(1, $(editor.el).find('.editor-column .column-remove').length);
+    });
+    
+    it('Button removes column', function() {
+      editor.clear();
+      editor.createRow();
+      $(editor.el).find('.editor-column .column-remove').click();
+      assert.equal(0, $(editor.el).find('.editor-column').length);
+    });
+    
+    it('Button removes column with row if there is only one column', function() {
+      editor.clear();
+      editor.createRow();
+      $(editor.el).find('.editor-column .column-remove').click();
+      assert.equal(0, $(editor.el).find('.editor-column').length);
+    });
+    
+    it('Button removes only parent column', function() {
+      editor.clear();
+      editor.createRow();
+      $(editor.el).find('.column-add').click();
+      var columns = $(editor.el).find('.editor-column');
+      
+     
+      
+      
+      
+    });
+
   });
   
 });
