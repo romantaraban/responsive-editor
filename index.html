@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="">
     
     <script src="./ckeditor/ckeditor.js"></script>
-    <script src="./editor.js"></script>
+    <script src="editor.js"></script>
 
 </head>
 <body> 
@@ -19,14 +19,7 @@
 <br>  
 
 
-<div id="holder">
-    <form style="text-align:center; margin-bottom:20px;" name="breakpointChange">
-            <input type="radio" value="large" name="breakpoint" id="large" checked> <label for="large">large </label>
-            <input type="radio" value="medium" name="breakpoint" id="medium"> <label for="medium">medium </label>
-            <input type="radio" value="small" name="breakpoint" id="small"> <label for="small">small </label>
-    </form>
-       
-</div>
+<div id="holder"></div>
 
 <form>
     <textarea style="border:red solid; padding:8px; min-height:100px; margin-top:150px; width:95%" id="console" name="console"></textarea>
@@ -36,17 +29,11 @@
 </form>
 <div id="content"></div>
 <script>
-    var editor = new ResponsiveEditor(document.getElementById('holder'), null, {
-      cssPath: 'editor.css'
+    var editor = new Editor(document.getElementById('holder'), null, {
+      cssPath: 'editor.css',
+      useIframe: false
     });
-    document.forms.breakpointChange.onchange=function(){
-        for(var button in document.forms[0].breakpoint){
-            if(document.forms[0].breakpoint[button].checked){
-                var selected = document.forms[0].breakpoint[button].value;
-            }
-        }
-        editor.changeBreakpoint(selected);
-    };
+
     document.forms[1].serialize.onclick=function(){
         event.preventDefault(); 
         console.log(editor.serialize())

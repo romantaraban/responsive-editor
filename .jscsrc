@@ -2,11 +2,6 @@
   "requireCurlyBraces": ["if", "else", "for", "while", "do", "try", "catch"],
   "requireOperatorBeforeLineBreak": true,
   "requireCamelCaseOrUpperCaseIdentifiers": true,
-  "maximumLineLength": {
-    "value": 220,
-    "allowComments": true,
-    "allowRegex": true
-  },
   "validateIndentation": 2,
   "disallowMultipleLineStrings": true,
   "disallowMixedSpacesAndTabs": true,

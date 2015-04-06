@@ -25,7 +25,7 @@ var testPath = './test/test.js';
 
 // settings
 var ingnoreLint = false;
-var ingnoreTests = true;
+var ingnoreTests = false;
 var runBrowserTest = true;
 
 // express
@@ -63,18 +63,19 @@ gulp.task('test', function() {
     if (runBrowserTest) {
       return gulp
         .src('./test/test.html')
-        .pipe(mochaPhantomJS())
-        .on('error', function(err) {
-          console.log(err)
-        });
+        .pipe(mochaPhantomJS({
+          phantomjs: {
+            webSecurity: false
+          }
+        }))
     } else {
       return gulp.src(testPath, {read: false})
-        .pipe(mocha())
+        .pipe(mocha({reporter: 'nyan'}))
         .on('error', function(err) {
           console.log(err)
         });
     }
-  }
+  } 
 });
 
 // build js files into single bundle

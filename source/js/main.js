@@ -1,287 +1,179 @@
-'use strict';
-/*
-function configCKEDITOR() {
-  CKEDITOR.stylesSet.add('my_custom_style', [
-      // Inline styles.
-    {
-      name: 'button',
-      element: 'span',
-      attributes: {
-        'class': 'button'
-      }
-    },
-    {
-      name: 'note text',
-      element: 'p',
-      attributes: {
-        'class': 'note-text'
-      }
-    },
-    {
-      name: 'text priority',
-      element: 'p',
-      attributes: {
-        'class': 'priority-block'
-      }
-    },
-    {
-      name: 'marker black',
-      element: 'ul',
-      attributes: {
-        'class': 'black-marker'
-      }
-    },
-    {
-      name: 'clear both',
-      element: 'p',
-      attributes: {
-        'class': 'clear-both'
-      }
-    }
-  ]);
-}
-*/
-// get SortableJS if it is already present on page, or require it.
-var Sortable = window.Sortable || require('sortablejs');
+var Model = require('tiny-model');
+var Sortable = require('sortablejs');
 
-var Editor = function(el, data, options) {
-  //configCKEDITOR();
-  this.cssPath = options.cssPath;
-  //init editor
-  this.colMinSize = 1;
-  this.colNumber = 12;
-  this.currentBreakpoint = 'large';
-  this.frame = document.createElement('iframe');
-  el.appendChild(this.frame);
-
-  this.document = this.frame.contentWindow.document;
-
-  this.frame.style.width = '100%';
-  this.frame.style.border = 'none';
-  this.document.body.style.height = 'auto';
-  this.document.body.innerHTML = '<link rel="stylesheet" href="' + this.cssPath + '">' +
-  '<div id="editor" class="responsive-editor break-' + this.currentBreakpoint + '">' +
-    '<div class="row-add"></div>' +
-  '</div>';
-
-  this.el = this.document.getElementById('editor');
-
-  //init rows;
-  this.rows = new Sortable(this.el, {
-    group: 'rows',
-    handle: '.row-handle',
-    draggable: '.editor-row',
-    ghostClass: 'sortable-ghost'
-  });
-  this.adjustEditorSize();
-  this.initHandlers();
-  if (data) {
-    this.buildFromSerialized(data);
-  } else {
-    this.createRow();
-  }
+/**
+ * Capitalize string
+ * @param {string} str
+ */
+var capitalize = function(str) {
+  return str.charAt(0).toUpperCase() + str.substring(1);
 };
 
-Editor.prototype = {
-  adjustEditorSize: function() {
-    this.frame.style.height = (Math.max(200, this.el.scrollHeight) + 100) + 'px';
-  },
-  initHandlers: function() {
-    //  add listners
-    this.el.addEventListener('click', function(event) {
-      //add Row;
-      var target = event.target;
-      var parentElement = target.parentElement;
-      var col;
-      if (target.classList.contains('row-add')) {
-        this.createRow();
-      }
-      // remove Row;
-      if (target.classList.contains('row-remove')) {
-        parentElement.parentElement.removeChild(parentElement);
-      }
-
-      // toggle visibility
-      if (target.classList.contains('column-hide')) {
-        this.toggleVisibilityState(event);
-      }
-      // add Col;
-      if (target.classList.contains('column-add')) {
-
-        if (this.checkEqualColumns(parentElement)) { //create equal columns
-          parentElement.insertBefore(this.createCol(), target);
-          this.justifyColumns(parentElement);
-        } else { //create simple column
-          parentElement.insertBefore(this.createCol({
-            small: this.colMinSize,
-            medium: this.colMinSize,
-            large: this.colMinSize,
-            content: '<p></p>'
-          }), target);
-        }
-      }
-      // remove Col;
-      if (event.target.classList.contains('column-remove')) {
-        col = event.target.parentElement;
-        row = col.parentElement;
-        if (col.parentElement.querySelectorAll('.editor-column').length === 1) { //last column - remove row
-          row.parentElement.removeChild(row);
-        } else {
-          if (this.checkEqualColumns(row)) { //remove equal columns
-            row.removeChild(col);
-            this.justifyColumns(row);
-          } else { // simple remove column
-            row.removeChild(col);
+/**
+ * Accepts two or more object and recursively copies theirs properties into the first object.
+ */
+var merge = function(obj) {
+  // if only one object  - return it
+  if (arguments.length > 1) {
+    // go throughout all arguments
+    for (var x = 1, l = arguments.length; x < l; x++) {
+      // if argument is object
+      if (typeof(arguments[x]) === 'object') {
+        // iterate its properties
+        for (var prop in arguments[x]) {
+          if (arguments[x].hasOwnProperty(prop)) {
+            // if this property is an object and there and origin object has property with same name and type
+            if (typeof(arguments[x][prop]) === 'object' && obj[prop] && typeof(obj[prop]) === 'object') {
+              merge(obj[prop], arguments[x][prop]);
+            } else {
+              obj[prop] = arguments[x][prop];
+            }
           }
         }
       }
+    }
+  }
+  return obj;
+}
 
+/**
+ * Accepts object of form {test: {one: 1, two: 2}, result: {one: 1, two: 2}}
+ * and retruns plain version {testOne: 1, testTwo: 2, resultOne: 1, resultTwo: 2}
+ * Useful for setting multiple values to .dataset at once
+ */
+var renderDataAttrs = function(data) {
+  var cache = {};
+  for (var prefix in data) {
+    for (var prop in data[prefix]) {
+      cache[prefix + prop[0].toUpperCase() + prop.slice(1)] = data[prefix][prop];
+    };
+  };
+  return cache;
+};
+
+var checkEqualColumns = function(columns, colNumber) {
+  return columns.length < 2 ? colNumber : columns.every(function(col) {
+    var size = col.model.get('size')
+    return size.large == size.medium && size.medium == size.small &&
+      size.small == Math.round(colNumber / columns.length);
+  });
+};
+
+var justifyColumns = function(columns, colNumber) {
+  columns.forEach(function(col) {
+    var size = {};
+    size.large = size.medium = size.small = Math.round(colNumber / columns.length);
+    col.model.set({size: size});
+  }, this);
+};
+
+var Editor = function(parent, data, options) {
+  //init editor
+  this.model = new Model(merge({
+    colMinSize: 1,
+    colNumber: 12,
+    breakpoint: 'large',
+    useIframe: true
+  }, options));
+
+  // create editor inside an iframe
+  if (this.model.get('useIframe')) {
+    this.frame = document.createElement('iframe');
+    parent.appendChild(this.frame);
+    this.holder = this.frame.contentWindow.document;
+    this.frame.style.width = '100%';
+    this.frame.style.border = 'none';
+    this.holder.style.height = 'auto';
+  } else {
+    this.holder = document.createElement('div');
+    parent.appendChild(this.holder);
+  }
+
+  this.holder.innerHTML = '' +
+    '<link rel="stylesheet" href="' + this.model.get('cssPath') + '">' +
+    '<div id="editor" class="responsive-editor break-' + this.model.get('breakpoint') + '">' +
+      '<form>' +
+        '<input type="radio" value="large" name="breakpoint" id="large" checked> <label for="large">large </label>' +
+        '<input type="radio" value="medium" name="breakpoint" id="medium"> <label for="medium">medium </label>' +
+        '<input type="radio" value="small" name="breakpoint" id="small"> <label for="small">small </label>' +
+      '</form>' +
+      '<div class="row-holder"></div>' +
+      '<div class="row-add"></div>' +
+    '</div>';
+
+  this.el = this.holder.querySelector('#editor');
+  this.childrenHolder = this.el.getElementsByClassName('row-holder')[0];
+
+  var storage = this.storage = [];
+  this.bindEvents();
+
+  if (data) {
+    this.buildFromSerialized(data);
+  } else {
+    this.addRow();
+  }
+
+  new Sortable(this.childrenHolder, {
+    group: 'rows',
+    handle: '.row-handle',
+    draggable: '.editor-row',
+    ghostClass: 'sortable-ghost',
+    onUpdate: this.sortRows.bind(this)
+  });
+  //configCKEDITOR();
+};
+
+var currentSortable;
+
+Editor.prototype = {
+  /**
+   * Addjust heigth of an iframe editor
+   */
+  adjustEditorSize: function() {
+    if (this.model.get('useIframe')) {
+      this.frame.style.height = (Math.max(200, this.el.scrollHeight) + 100) + 'px';
+    }
+  },
+
+  /**
+   * Attach handlers to dom
+   */
+  bindEvents: function() {
+    this.el.addEventListener('click', function(event) {
+      if (event.target.className === 'row-add') {
+        this.addRow();
+      }
+
+      if (event.target.name === 'breakpoint') {
+        this.setBreakpoint(event.target.value);
+      }
     }.bind(this), false);
 
-    //column resize
-    this.el.addEventListener('mousedown', this.resizeColumn.bind(this), false);
-
+    this.model.on('change:breakpoint', function(event, name, value) {
+      this.el.classList.remove('break-small', 'break-medium', 'break-large');
+      this.el.classList.add('break-' + value);
+    }.bind(this));
   },
-  createCol: function(_data) {
-    var col = document.createElement('div');
-    var colContent = document.createElement('div');
-    var colHandle = document.createElement('div');
-    var colRemove = document.createElement('div');
-    var colResize = document.createElement('div');
-    var colHide = document.createElement('div');
-    var data = _data || {
-      size: this.colMinSize,
-      content: '<p></p>'
-    };
-    col.className = 'editor-column';
-    col.dataset.large = data.large || 12;
-    col.dataset.medium = data.medium || 12;
-    col.dataset.small = data.small || 12;
 
-    colHide.className = 'column-hide';
-    col.dataset.hideLarge = data.hideLarge || 0;
-    col.dataset.hideMedium = data.hideMedium || 0;
-    col.dataset.hideSmall = data.hideSmall || 0;
-    var correctName = this.currentBreakpoint[0].toUpperCase() + this.currentBreakpoint.substr(1);
-    if (parseInt(data['hide' + correctName])) {
-      colHide.classList.add('active');
-    }
-
-    colContent.className = 'column-content';
-    colContent.setAttribute('contenteditable', 'true');
-    colContent.innerHTML = unescape(data.content);
-
-    CKEDITOR.inline(colContent, {
-      stylesSet: 'my_custom_style'
-    });
-    col.addEventListener('dragend', function() {
-      this.removeAttribute('draggable');
-    }, false);
-
-    colHandle.className = 'column-handle';
-    colRemove.className = 'column-remove';
-    colResize.className = 'column-resize';
-
-    col.appendChild(colHandle);
-    col.appendChild(colContent);
-    col.appendChild(colResize);
-    col.appendChild(colRemove);
-    col.appendChild(colHide);
-    this.adjustEditorSize();
-    return col;
+  /**
+   * Create new row in end of editor
+   */
+  addRow: function(options) {
+    this.storage.push(new Row(this, options))
   },
-  initColumns: function(row) {
-    return new Sortable(row, {
-      group: 'column',
-      handle: '.column-handle',
-      draggable: '.editor-column',
-      ghostClass: 'sortable-ghost'
 
-    });
+  sortRows: function(event) {
+    currentSortable = this.storage[event.newIndex];
+    this.storage[event.newIndex] = this.storage[event.oldIndex];
+    this.storage[event.oldIndex] = currentSortable;
   },
-  createRow: function(data) {
-    var row = document.createElement('div');
-    var rowHandle = document.createElement('div');
-    var rowAdd = document.createElement('div');
-    var rowRemove = document.createElement('div');
-    var rowCollapse = document.createElement('input');
-    var rowStyle = document.createElement('div');
-    var rowClass = document.createElement('div');
-    var rowId = document.createElement('div');
 
-    rowStyle.innerHTML = '<label>Style</label><input class="row-style">';
-    rowClass.innerHTML = '<label>Class</label><input class="row-class">';
-    rowId.innerHTML = '<label>id</label><input class="row-id">';
-    rowStyle.className = 'row-class-holder';
-    rowClass.className = 'row-style-holder';
-    rowId.className = 'row-id-holder';
-
-    row.className = 'editor-row';
-    rowHandle.className = 'row-handle';
-    rowAdd.className = 'column-add';
-    rowRemove.className = 'row-remove';
-
-    var styleInput = rowStyle.querySelector('.row-style');
-    styleInput.addEventListener('keyup', function(event) {
-      row.setAttribute('style', event.target.value);
-    }, false);
-    var classInput = rowClass.querySelector('.row-class');
-    classInput.addEventListener('keyup', function(event) {
-      row.setAttribute('class', 'editor-row' + ' ' + event.target.value);
-    }, false);
-    var idInput = rowId.querySelector('.row-id');
-    idInput.addEventListener('keyup', function(event) {
-      row.setAttribute('id', 'editor-row' + ' ' + event.target.value);
-    }, false);
-
-    rowCollapse.setAttribute('type', 'checkbox');
-    rowCollapse.value = 1;
-
-    if (data) {
-      if (data.collapsed) {
-        rowCollapse.setAttribute('checked', 'checked');
-      }
-      if (data.class && data.class !== 'undefined') {
-        rowClass.querySelector('.row-class').value = data.class;
-        row.setAttribute('style', data.class); // mutti class. pre: row.classList.add(data.class)
-      }
-      if (data.style && data.style !== 'undefined') {
-        rowStyle.querySelector('.row-style').value = data.style;
-        row.setAttribute('style', data.style);
-      }
-      if (data.id && data.id !== 'undefined') {
-        rowId.querySelector('.row-id').value = data.id;
-        row.setAttribute('style', data.id); // becouse
-      }
-    }
-    row.appendChild(rowCollapse);
-    row.appendChild(rowHandle);
-    if (data && data.columns) { //build few columns from JSON
-      [].forEach.call(data.columns, function(column) {
-        row.appendChild(this.createCol(column));
-      }.bind(this));
-    } else { //build new column
-      row.appendChild(this.createCol());
-    }
-    row.appendChild(rowAdd);
-    row.appendChild(rowRemove);
-
-    row.appendChild(rowStyle);
-    row.appendChild(rowClass);
-    row.appendChild(rowId);
-
-    this.initColumns(row);
-    this.el.insertBefore(row, this.el.getElementsByClassName('row-add')[0]);
-    this.adjustEditorSize();
-  },
-  
   /**
    * Remove all content from editor
    */
   clear: function() {
-    var rows = this.el.getElementsByClassName('editor-row');
-    while (rows.length) {
-      rows[0].parentElement.removeChild(rows[0]);
+    while (this.storage.length) {
+      this.storage.pop().remove();
     }
   },
 
@@ -289,165 +181,332 @@ Editor.prototype = {
    * Serialize current state and return.
    * @param {bool} toJSON
    **/
-  serialize: function(toJSON) {
-
-    // serialization function
-    function serializeCol(col) {
-
-      return {
-        content: escape(col.getElementsByClassName('column-content')[0].innerHTML),
-        large: col.dataset.large || 1,
-        medium: col.dataset.medium || col.dataset.large || 1,
-        small: col.dataset.small || col.dataset.medium || col.dataset.large || 1,
-        hideSmall: col.dataset.hideSmall || 0,
-        hideMedium: col.dataset.hideMedium || 0,
-        hideLarge: col.dataset.hideLarge || 0
-      };
-    }
-    function serializeRow(row) {
-      return {
-        collapsed: row.querySelector('input').checked,
-        class: row.querySelector('.row-class').value,
-        id: row.querySelector('.row-id').value,
-        style: row.querySelector('.row-style').value,
-        columns: []
-      };
-    }
-
-    // go thru rows and columns and serialize theme
-    var result = Array.prototype.reduce.call(this.el.getElementsByClassName('editor-row'), function(data, row) {
-      var serialized = serializeRow(row);
-      serialized.columns = Array.prototype.reduce.call(row.getElementsByClassName('editor-column'), function(data, col) {
-        return data.push(serializeCol(col)) && data;
-      }, []);
-      return data.push(serialized) && data;
-    }, []);
-
-    return toJSON ? result : JSON.stringify(result);
+  serialize: function(toSJON) {
+    var data = this.storage.map(function(row) {
+      return merge({columns: row.storage.map(function(col) {
+        // make data sanitation here
+        return merge({}, col.model.state, {content: col.model.state.content});
+      })}, row.model.state);
+    });
+    return toSJON ? data : JSON.stringify(data);
   },
 
   /**
-   * Remove previous content and fullfil editor with content based on serialized JSON data object.
-   * @param {object} data
+   * Remove previous content and fullfil editor with content based on array of data serialized JSON data object.
+   * @param {array, string} data
    **/
   buildFromSerialized: function(data) {
     if (!(data instanceof Array)) {
       try {
-        if (typeof(data) === 'string') {
-          var data = JSON.parse(data);
-        } else {
-          throw new Error('cant parse data')
-        }
+        var data = JSON.parse(data);
       } catch (error) {
-        console.log(error);
-        return error;
+        throw new Error('Can\'t parse "' + data + '", ' + error);
       }
     }
     // if we have data - remove current data
     this.clear();
     while (data.length) {
-      this.createRow(data.shift());
+      this.addRow(data.shift());
     }
-  },
-
-  changeBreakpoint: function(breakpoint) {
-    this.currentBreakpoint = breakpoint;
-    //            this.currentBreakpointIndex = ['small','medium','large'].indexOf(breakpoint);
-    this.el.classList.remove('break-small', 'break-medium', 'break-large');
-    this.el.classList.add('break-' + breakpoint);
-    var correctName = this.currentBreakpoint[0].toUpperCase() + this.currentBreakpoint.substr(1);
-    Array.prototype.forEach.call(this.el.querySelectorAll('.editor-column'), function(el, index) {
-      var currentState = el.dataset['hide' + correctName];
-      if (parseInt(currentState)) {
-        el.querySelector('.column-hide').classList.add('active');
-      } else {
-        el.querySelector('.column-hide').classList.remove('active');
-      }
-    });
-  },
-  toggleVisibilityState: function(event) {
-    event.target.classList.toggle('active');
-    var parent = event.target.parentElement;
-    var correctName = this.currentBreakpoint[0].toUpperCase() + this.currentBreakpoint.substr(1);
-    var currentState = parent.dataset['hide' + correctName];
-    parent.dataset['hide' + correctName] = parseInt(currentState) ? 0 : 1;
-  },
-  resizeColumn: function(event) {
-    // resize target;
-    var target = event.target.parentElement;
-    if (event.target.classList.contains('column-content')) {
-      //event.preventDefault();
-      event.stopImmediatePropagation();
-    }
-    if (event.target.classList.contains('column-resize')) {
-      var startPoint = event.clientX;
-      var step = this.el.querySelector('.editor-row').clientWidth / 12;
-      var startWidth = Number(target.dataset[this.currentBreakpoint] || 1);
-      var rigthSide = target.getClientRects()[0].right;
-      var resizer = function(event) {
-        //return with limited to inverted size of targetso it can't be scaled in negaivesize.
-        //Set step to 50px
-        var additinalSize = Math.max(startWidth * -1, Math.round((event.clientX - rigthSide) / step));
-        target.dataset[this.currentBreakpoint] = Math.max(1, startWidth + additinalSize);
-
-      }.bind(this);
-      var stopResizer = function(event) {
-        this.el.removeEventListener('mousemove', resizer, false);
-        this.el.removeEventListener('mousemove', stopResizer, false);
-      }.bind(this);
-      this.el.addEventListener('mousemove', resizer, false);
-      this.el.addEventListener('mouseup', stopResizer, false);
-      event.stopImmediatePropagation();
-      event.preventDefault();
-    }
-    this.adjustEditorSize();
-  },
-  checkEqualColumns: function(row) {
-    var columns = row.querySelectorAll('.editor-column');
-    return [].every.call(columns, function(el) {
-      return el.dataset.large == el.dataset.medium &&
-        el.dataset.medium == el.dataset.small &&
-        el.dataset.small == Math.round(this.colNumber / columns.length);
-    }, this);
-  },
-  justifyColumns: function(row) {
-    var columns = row.querySelectorAll('.editor-column');
-    [].forEach.call(columns, function(el) {
-      el.dataset.large = el.dataset.medium = el.dataset.small = Math.round(this.colNumber / columns.length);
-    }, this);
   },
 
   /**
    * Parse serialized data and render it to HTML.
    */
   renderHTML: function() {
-    var html = '';
-    [].forEach.call(this.serialize(true), function(row) {
+    return this.serialize(true).reduce(function(html, row) {
       html +=
-        '<div class="row ' + ((row.collapsed) ? 'collapse' : '') + ' ' + row.class + '" id="' + row.id + '"' +
+        '<div class="row' +
+        (row.collapsed ? ' collapse' : '') +
+        (row.class ? ' ' + row.class : '') +
+        '"' +
+        (row.id ? 'id="' + row.id + '"' : '') +
         (row.style ? 'style="' + row.style + '"' : '') + '>';
-      [].forEach.call(row.columns, function(column) {
-        html += '<div class="columns' +
-          ((column.large) ? ' large-' + column.large : '') +
-          ((column.medium) ? ' medium-' + column.medium : '') +
-          ((column.small) ? ' small-' + column.small : '') +
-          ((~~column.hideLarge) ? ' hide-for-large' : '') +
-          ((~~column.hideMedium) ? ' hide-for-medium' : '') +
-          ((~~column.hideSmall) ? ' hide-for-small' : '') + '">';
-        html += unescape(column.content);
-        html += '</div>';
-      }.bind(this));
+
+      html += row.columns.reduce(function(colhtml, column) {
+        colhtml += '<div class="columns' +
+          ' large-' + (column.size.large || '') +
+          ' medium-' + (column.size.medium || '') +
+          ' small-' + (column.size.small || '') +
+          (column.hide.large ? ' hide-for-large' : '') +
+          (column.hide.medium ? ' hide-for-medium' : '') +
+          (column.hide.small ? ' hide-for-small' : '') + '">';
+        colhtml += column.content;
+        colhtml += '</div>';
+        return colhtml;
+      }, '');
+
       html += '</div>';
-    }.bind(this));
-    return html;
+      return html;
+    }, '');
   },
-  
+
   /**
    * Render content to specified html element
    */
   renderTo: function(target) {
     target.innerHTML = this.renderHTML();
+  },
+
+  /**
+   * Set breakpoint to specific value
+   * @param {string} breakpoint
+   */
+  setBreakpoint: function(breakpoint) {
+    this.model.set('breakpoint', breakpoint)
   }
 };
 
-module.exports = window.ResponsiveEditor = Editor;
+var Row = function(parentEditor, options) {
+  if (parentEditor instanceof Editor) {
+    if (options && options.columns) {
+      var columns = options.columns;
+      delete options.columns;
+    }
+    this.model = new Model(merge({
+      collapsed: false,
+      class: '',
+      id: '',
+      style: ''
+    }, options));
+    this.parent = parentEditor;
+    this.el = this.render();
+    this.childrenHolder = this.el.getElementsByClassName('row-columns-holder')[0];
+    this.parent.childrenHolder.appendChild(this.el);
+    this.bindEvents();
+    this.storage = [];
+    if (columns) {
+      while (columns.length) {
+        this.addColumn(columns.shift());
+      }
+    } else {
+      this.addColumn();
+    }
+
+    var sorter = this.sortColumns.bind(this);
+    new Sortable(this.childrenHolder, {
+      group: 'column',
+      handle: '.column-handle',
+      draggable: '.editor-column',
+      ghostClass: 'sortable-ghost',
+      onAdd: sorter,
+      onRemove: sorter,
+      onUpdate: sorter
+    });
+  } else {
+    throw new Error('Parent editor should be specified');
+  }
+};
+
+Row.prototype = {
+  bindEvents: function() {
+    this.el.addEventListener('click', function(event) {
+
+      if (event.target.className === 'row-remove') {
+        this.remove();
+      } else
+      if (event.target.className === 'column-add') {
+
+        if (checkEqualColumns(this.storage, 12)) { //create equal columns
+          this.addColumn();
+          justifyColumns(this.storage, 12);
+        } else { //create simple column
+          this.addColumn();
+        }
+      }
+    }.bind(this));
+
+    this.el.addEventListener('keyup', function(event) {
+      var prefix;
+      if (/^(style|class|id)$/.test(event.target.name)) {
+        prefix = event.target.name === 'class' ? 'editor-row ' : '';
+        this.model.set(event.target.name, event.target.value);
+        this.el.setAttribute(event.target.name, prefix + event.target.value);
+      }
+    }.bind(this), false);
+  },
+  render: function(data) {
+    var id = this.model.get('id') || '';
+    var className = this.model.get('class') || '';
+    var style = this.model.get('style') || '';
+
+    var template = '' +
+    '<div class="editor-row ' + className + '" id="' + id + '" ' + 'style="' + style + '">' +
+      '<input class="row-collapse" type="checkbox" value="1">' +
+      '<div class="row-handle"></div>' +
+      '<div class="row-columns-holder"></div>' +
+      '<div class="column-add"></div>' +
+      '<div class="row-remove"></div>' +
+      '<div class="row-style-holder"><input placeholder="style" name="style" value="' + style + '"></div>' +
+      '<div class="row-class-holder"><input placeholder="class" name="class" value="' + className + '"></div>' +
+      '<div class="row-id-holder"><input placeholder="id" name="id" value="' + id + '"></div>' +
+    '</div>';
+
+    // create temp element, render row from template as innerHTML and return it
+    return ((row = document.createElement('div')).innerHTML = template) && row.children[0];
+
+  },
+  addColumn: function(options) {
+    this.storage.push(new Column(this, options));
+  },
+  removeColumn: function(obj) {
+    this.storage.splice(this.storage.indexOf(obj), 1);
+    if (this.storage.length === 0) {
+      this.remove();
+    }
+  },
+  sortColumns: function(event) {
+    event.stopPropagation();
+    if (event.type === 'remove') {
+      currentSortable = this.storage.splice(event.oldIndex, 1);
+    }
+    if (event.type === 'add') {
+      this.storage.splice(event.newIndex, 0, currentSortable);
+    }
+    if (event.type === 'update') {
+      currentSortable = this.storage[event.newIndex];
+      this.storage[event.newIndex] = this.storage[event.oldIndex];
+      this.storage[event.oldIndex] = currentSortable;
+    }
+  },
+  remove: function() {
+    // remove all children, they will remove themself from this storege
+    while (this.storage.length) {
+      this.storage[0].remove();
+    }
+    // then remove row from dom
+    // check if it is a part of dom (in case if call this method twice)
+    if (this.el.parentElement) {
+      this.el.parentElement.removeChild(this.el);
+    }
+  }
+};
+
+var Column = function(parentRow, data) {
+  if (parentRow instanceof Row) {
+    this.model = new Model(merge({
+      size: {
+        small: 12,
+        medium: 12,
+        large: 12
+      },
+      hide: {
+        small: false,
+        medium: false,
+        large: false
+      },
+      content: '<p>&nbsp;</p>',
+    }, data));
+    //set parrent element
+    this.parent = parentRow;
+    this.el = this.render();
+    this.parent.childrenHolder.appendChild(this.el);
+    this.bindEvents();
+  } else {
+    throw new Error('Parent row should be specifid')
+  }
+};
+
+Column.prototype = {
+  bindEvents: function() {
+    this.model.on('change:size', function(event, name, value) {
+      // set data-size attributes with single command
+      merge(this.el.dataset, renderDataAttrs({size: value}));
+    }, this);
+
+    this.parent.parent.model.on('change:breakpoint', function(event, name, breakpoint) {
+      var currentState = !!this.model.get('hide.' + breakpoint);
+      if (currentState) {
+        this.el.querySelector('.column-hide').classList.add('active');
+      } else {
+        this.el.querySelector('.column-hide').classList.remove('active');
+      }
+    }.bind(this));
+
+    this.el.addEventListener('keyup', function(event) {
+      if (event.target.classList.contains('column-content')) {
+        this.model.set({content: event.target.innerHTML})
+      }
+    }.bind(this));
+
+    this.el.addEventListener('click', function(event) {
+      if (event.target.className === 'column-remove') {
+        this.remove();
+      }
+      if (event.target.classList.contains('column-hide')) {
+        event.target.classList.toggle('active');
+        var parent = event.target.parentElement;
+        var breakpoint = this.parent.parent.model.get('breakpoint');
+        var value = this.model.get('hide.' + breakpoint);
+        this.model.set('hide.' + breakpoint, !value);
+        this.el.dataset['hide' + capitalize(breakpoint)] = !value;
+      }
+    }.bind(this), false);
+
+    this.el.addEventListener('mousedown', function(event) {
+      // resize target;
+      var target = event.target.parentElement;
+      if (event.target.classList.contains('column-content')) {
+        event.stopImmediatePropagation();
+      }
+      if (event.target.classList.contains('column-resize')) {
+        var startPoint = event.clientX;
+        var breakpoint = this.parent.parent.model.get('breakpoint');
+        var step = this.parent.el.clientWidth / 12;
+        var startWidth = Number(this.model.get('size.' + breakpoint) || 1);
+        var rigthSide = target.getClientRects()[0].right;
+        var resizer = function(event) {
+          //return with limited to inverted size of targetso it can't be scaled in negaivesize.
+          //Set step to 50px
+          var additinalSize = Math.max(startWidth * -1, Math.round((event.clientX - rigthSide) / step));
+          this.model.set('size.' + breakpoint, Math.min(12, Math.max(1, startWidth + additinalSize)));
+
+        }.bind(this);
+        var stopResizer = function(event) {
+          window.removeEventListener('mousemove', resizer, false);
+          window.removeEventListener('mousemove', stopResizer, false);
+          this.el.classList.remove('resizing');
+        }.bind(this);
+        this.el.classList.add('resizing');
+        window.addEventListener('mousemove', resizer, false);
+        window.addEventListener('mouseup', stopResizer, false);
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }
+
+    }.bind(this), false);
+
+  },
+  render: function(data) {
+    var template = '<div class="editor-column">' +
+      '<div class="column-content" contenteditable>' + this.model.get('content') + '</div>' +
+      '<div class="column-handle"></div>' +
+      '<div class="column-remove"></div>' +
+      '<div class="column-resize"></div>' +
+      '<div class="column-hide ' + (this.model.get('hide.' + this.parent.parent.model.get('breakpoint')) ? 'active' : '') + '"></div>' +
+    '</div>'
+
+    // create temp element, render column from template as innerHTML and return it
+    var col = ((col = document.createElement('div')).innerHTML = template) && col.children[0];
+
+    merge(col.dataset, renderDataAttrs({size: this.model.get('size')}));
+
+    //  CKEDITOR.inline(colContent, {
+    //    stylesSet: 'my_custom_style'
+    //  });
+
+    return col;
+  },
+  remove: function() {
+    this.model.off();
+    this.el.parentElement.removeChild(this.el);
+    this.parent.removeColumn(this);
+  }
+};
+
+//for test purposes
+window.Editor = Editor;
+window.Row = Row;
+window.Column = Column;
+
+module.exports = Editor;
