@@ -1,6 +1,6 @@
 {
   "name": "responsive-editor",
-  "version": "0.2",
+  "version": "0.2.0",
   "description": "Simple editor to create responsive content",
   "main": "./editor.js",
   "dependencies": {
