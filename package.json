@@ -20,7 +20,7 @@
     "watchify": "^2.4.0"
   },
   "scripts": {
-    "test": "mocha-phantomjs test.js && jscs index.js",
+    "test": "mocha-phantomjs test/test.html && jscs source/js/main.js",
     "build": "gulp sass && gulp build-js"
   },
   "author": "Roman Taraban",
