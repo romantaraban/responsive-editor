@@ -1,72 +1,11 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var Model = require('tiny-model');
 var Sortable = require('sortablejs');
+var merge = require('./merge');
+var Row = require('./row');
+var Column = require('./column');
 
-/**
- * Capitalize string
- * @param {string} str
- */
-var capitalize = function(str) {
-  return str.charAt(0).toUpperCase() + str.substring(1);
-};
-
-/**
- * Accepts two or more object and recursively copies theirs properties into the first object.
- */
-var merge = function(obj) {
-  // if only one object  - return it
-  if (arguments.length > 1) {
-    // go throughout all arguments
-    for (var x = 1, l = arguments.length; x < l; x++) {
-      // if argument is object
-      if (typeof(arguments[x]) === 'object') {
-        // iterate its properties
-        for (var prop in arguments[x]) {
-          if (arguments[x].hasOwnProperty(prop)) {
-            // if this property is an object and there and origin object has property with same name and type
-            if (typeof(arguments[x][prop]) === 'object' && obj[prop] && typeof(obj[prop]) === 'object') {
-              merge(obj[prop], arguments[x][prop]);
-            } else {
-              obj[prop] = arguments[x][prop];
-            }
-          }
-        }
-      }
-    }
-  }
-  return obj;
-}
-
-/**
- * Accepts object of form {test: {one: 1, two: 2}, result: {one: 1, two: 2}}
- * and retruns plain version {testOne: 1, testTwo: 2, resultOne: 1, resultTwo: 2}
- * Useful for setting multiple values to .dataset at once
- */
-var renderDataAttrs = function(data) {
-  var cache = {};
-  for (var prefix in data) {
-    for (var prop in data[prefix]) {
-      cache[prefix + prop[0].toUpperCase() + prop.slice(1)] = data[prefix][prop];
-    };
-  };
-  return cache;
-};
-
-var checkEqualColumns = function(columns, colNumber) {
-  return columns.length < 2 ? colNumber : columns.every(function(col) {
-    var size = col.model.get('size')
-    return size.large == size.medium && size.medium == size.small &&
-      size.small == Math.round(colNumber / columns.length);
-  });
-};
-
-var justifyColumns = function(columns, colNumber) {
-  columns.forEach(function(col) {
-    var size = {};
-    size.large = size.medium = size.small = Math.round(colNumber / columns.length);
-    col.model.set({size: size});
-  }, this);
-};
+var currentSortable;
 
 function configCKEDITOR() {
   CKEDITOR.disableAutoInline = true;
@@ -111,6 +50,12 @@ function configCKEDITOR() {
 }
 
 var Editor = function(parent, data, options) {
+  Object.defineProperty(this, 'class', {
+    value: 'Editor',
+    configurable: false,
+    writable: false
+  });
+
   //init editor
   this.model = new Model(merge({
     colMinSize: 1,
@@ -166,8 +111,6 @@ var Editor = function(parent, data, options) {
   configCKEDITOR();
 };
 
-var currentSortable;
-
 Editor.prototype = {
   /**
    * Addjust heigth of an iframe editor
@@ -205,6 +148,9 @@ Editor.prototype = {
     this.storage.push(new Row(this, options))
   },
 
+  /**
+   * Sort columns acordently to data from sort event
+   */
   sortRows: function(event) {
     currentSortable = this.storage[event.newIndex];
     this.storage[event.newIndex] = this.storage[event.oldIndex];
@@ -300,260 +246,15 @@ Editor.prototype = {
   }
 };
 
-var Row = function(parentEditor, options) {
-  if (parentEditor instanceof Editor) {
-    if (options && options.columns) {
-      var columns = options.columns;
-      delete options.columns;
-    }
-    this.model = new Model(merge({
-      collapsed: false,
-      class: '',
-      id: '',
-      style: ''
-    }, options));
-    this.parent = parentEditor;
-    this.el = this.render();
-    this.childrenHolder = this.el.getElementsByClassName('row-columns-holder')[0];
-    this.parent.childrenHolder.appendChild(this.el);
-    this.bindEvents();
-    this.storage = [];
-    if (columns) {
-      while (columns.length) {
-        this.addColumn(columns.shift());
-      }
-    } else {
-      this.addColumn();
-    }
-
-    var sorter = this.sortColumns.bind(this);
-    new Sortable(this.childrenHolder, {
-      group: 'column',
-      handle: '.column-handle',
-      draggable: '.editor-column',
-      ghostClass: 'sortable-ghost',
-      onAdd: sorter,
-      onRemove: sorter,
-      onUpdate: sorter
-    });
-  } else {
-    throw new Error('Parent editor should be specified');
-  }
-};
-
-Row.prototype = {
-  bindEvents: function() {
-    this.el.addEventListener('click', function(event) {
-
-      if (event.target.className === 'row-remove') {
-        this.remove();
-      } else
-      if (event.target.className === 'column-add') {
-
-        if (checkEqualColumns(this.storage, 12)) { //create equal columns
-          this.addColumn();
-          justifyColumns(this.storage, 12);
-        } else { //create simple column
-          this.addColumn();
-        }
-      }
-    }.bind(this));
-
-    this.el.addEventListener('keyup', function(event) {
-      var prefix;
-      if (/^(style|class|id)$/.test(event.target.name)) {
-        prefix = event.target.name === 'class' ? 'editor-row ' : '';
-        this.model.set(event.target.name, event.target.value);
-        this.el.setAttribute(event.target.name, prefix + event.target.value);
-      }
-    }.bind(this), false);
-  },
-  render: function(data) {
-    var id = this.model.get('id') || '';
-    var className = this.model.get('class') || '';
-    var style = this.model.get('style') || '';
-
-    var template = '' +
-    '<div class="editor-row ' + className + '" id="' + id + '" ' + 'style="' + style + '">' +
-      '<input class="row-collapse" type="checkbox" value="1">' +
-      '<div class="row-handle"></div>' +
-      '<div class="row-columns-holder"></div>' +
-      '<div class="column-add"></div>' +
-      '<div class="row-remove"></div>' +
-      '<div class="row-style-holder"><input placeholder="style" name="style" value="' + style + '"></div>' +
-      '<div class="row-class-holder"><input placeholder="class" name="class" value="' + className + '"></div>' +
-      '<div class="row-id-holder"><input placeholder="id" name="id" value="' + id + '"></div>' +
-    '</div>';
-
-    // create temp element, render row from template as innerHTML and return it
-    return ((row = document.createElement('div')).innerHTML = template) && row.children[0];
-
-  },
-  addColumn: function(options) {
-    this.storage.push(new Column(this, options));
-  },
-  removeColumn: function(obj) {
-    this.storage.splice(this.storage.indexOf(obj), 1);
-    if (this.storage.length === 0) {
-      this.remove();
-    }
-  },
-  sortColumns: function(event) {
-    event.stopPropagation();
-    if (event.type === 'remove') {
-      currentSortable = this.storage.splice(event.oldIndex, 1);
-    }
-    if (event.type === 'add') {
-      this.storage.splice(event.newIndex, 0, currentSortable);
-    }
-    if (event.type === 'update') {
-      currentSortable = this.storage[event.newIndex];
-      this.storage[event.newIndex] = this.storage[event.oldIndex];
-      this.storage[event.oldIndex] = currentSortable;
-    }
-  },
-  remove: function() {
-    // remove all children, they will remove themself from this storege
-    while (this.storage.length) {
-      this.storage[0].remove();
-    }
-    // then remove row from dom
-    // check if it is a part of dom (in case if call this method twice)
-    if (this.el.parentElement) {
-      this.el.parentElement.removeChild(this.el);
-    }
-  }
-};
-
-var Column = function(parentRow, data) {
-  if (parentRow instanceof Row) {
-    this.model = new Model(merge({
-      size: {
-        small: 12,
-        medium: 12,
-        large: 12
-      },
-      hide: {
-        small: false,
-        medium: false,
-        large: false
-      },
-      content: '<p>&nbsp;</p>',
-    }, data));
-    //set parrent element
-    this.parent = parentRow;
-    this.el = this.render();
-    this.parent.childrenHolder.appendChild(this.el);
-    CKEDITOR.inline(this.el.getElementsByClassName('column-content')[0], {
-      stylesSet: 'my_custom_style'
-    });
-    this.bindEvents();
-  } else {
-    throw new Error('Parent row should be specifid')
-  }
-};
-
-Column.prototype = {
-  bindEvents: function() {
-    this.model.on('change:size', function(event, name, value) {
-      // set data-size attributes with single command
-      merge(this.el.dataset, renderDataAttrs({size: value}));
-    }, this);
-
-    this.parent.parent.model.on('change:breakpoint', function(event, name, breakpoint) {
-      var currentState = !!this.model.get('hide.' + breakpoint);
-      if (currentState) {
-        this.el.querySelector('.column-hide').classList.add('active');
-      } else {
-        this.el.querySelector('.column-hide').classList.remove('active');
-      }
-    }.bind(this));
-
-    this.el.addEventListener('keyup', function(event) {
-      if (event.target.classList.contains('column-content')) {
-        this.model.set({content: event.target.innerHTML})
-      }
-    }.bind(this));
-
-    this.el.addEventListener('click', function(event) {
-      if (event.target.className === 'column-remove') {
-        this.remove();
-      }
-      if (event.target.classList.contains('column-hide')) {
-        event.target.classList.toggle('active');
-        var parent = event.target.parentElement;
-        var breakpoint = this.parent.parent.model.get('breakpoint');
-        var value = this.model.get('hide.' + breakpoint);
-        this.model.set('hide.' + breakpoint, !value);
-        this.el.dataset['hide' + capitalize(breakpoint)] = !value;
-      }
-    }.bind(this), false);
-
-    this.el.addEventListener('mousedown', function(event) {
-      // resize target;
-      var target = event.target.parentElement;
-      if (event.target.classList.contains('column-content')) {
-        event.stopImmediatePropagation();
-      }
-      if (event.target.classList.contains('column-resize')) {
-        var startPoint = event.clientX;
-        var breakpoint = this.parent.parent.model.get('breakpoint');
-        var step = this.parent.el.clientWidth / 12;
-        var startWidth = Number(this.model.get('size.' + breakpoint) || 1);
-        var rigthSide = target.getClientRects()[0].right;
-        var resizer = function(event) {
-          //return with limited to inverted size of targetso it can't be scaled in negaivesize.
-          //Set step to 50px
-          var additinalSize = Math.max(startWidth * -1, Math.round((event.clientX - rigthSide) / step));
-          this.model.set('size.' + breakpoint, Math.min(12, Math.max(1, startWidth + additinalSize)));
-
-        }.bind(this);
-        var stopResizer = function(event) {
-          window.removeEventListener('mousemove', resizer, false);
-          window.removeEventListener('mousemove', stopResizer, false);
-          this.el.classList.remove('resizing');
-        }.bind(this);
-        this.el.classList.add('resizing');
-        window.addEventListener('mousemove', resizer, false);
-        window.addEventListener('mouseup', stopResizer, false);
-        event.stopImmediatePropagation();
-        event.preventDefault();
-      }
-
-    }.bind(this), false);
-
-  },
-  render: function(data) {
-    var template = '<div class="editor-column">' +
-      '<div class="column-content" contenteditable>' + this.model.get('content') + '</div>' +
-      '<div class="column-handle"></div>' +
-      '<div class="column-remove"></div>' +
-      '<div class="column-resize"></div>' +
-      '<div class="column-hide ' + (this.model.get('hide.' + this.parent.parent.model.get('breakpoint')) ? 'active' : '') + '"></div>' +
-    '</div>'
-
-    // create temp element, render column from template as innerHTML and return it
-    var col = ((col = document.createElement('div')).innerHTML = template) && col.children[0];
-
-    merge(col.dataset, renderDataAttrs({size: this.model.get('size')}));
-
-    return col;
-  },
-  remove: function() {
-    this.model.off();
-    this.el.parentElement.removeChild(this.el);
-    this.parent.removeColumn(this);
-  }
-};
-
 //for test purposes
-window.Editor = Editor;
-window.Row = Row;
-window.Column = Column;
+window._Editor = Editor;
+window._Row = Row;
+window._Column = Column;
 
+window.Editor = Editor;
 module.exports = Editor;
 
-},{"sortablejs":2,"tiny-model":3}],2:[function(require,module,exports){
+},{"./column":5,"./merge":6,"./row":7,"sortablejs":2,"tiny-model":3}],2:[function(require,module,exports){
 /**!
  * Sortable
  * @author	RubaXa   <trash@rubaxa.org>
@@ -1678,9 +1379,9 @@ module.exports = Editor;
           }
         } else {
           // if not an object - then we can't set child properties to it, throw an error
-          throw new Error(curPropPath + 'is not an object');
+          throw new Error('\'name\' is not an object');
         }
-      } else if (this.state[arguments[0]] !== arguments[1]) {
+      } else {
         this.state[arguments[0]] = arguments[1];
         this.trigger('change:' + arguments[0], arguments[0], arguments[1]);
       }
@@ -1688,10 +1389,8 @@ module.exports = Editor;
       var data = arguments[0];
       for (var prop in data) {
         if (data.hasOwnProperty(prop)) {
-          if (this.state[prop] !== data[prop]) {
-            this.state[prop] = data[prop];
-            this.trigger('change:' + prop, prop, data[prop]);
-          }
+          this.state[prop] = data[prop];
+          this.trigger('change:' + prop, prop, data[prop]);
         }
       }
     }
@@ -1789,6 +1488,11 @@ module.exports = Editor;
       this.events || (this.events = {});
       this.events[event] || (this.events[event] = []);
 
+      //if event was defined as a hash - convert to array representation
+      if (typeof(this.events[event]) === 'function') {
+        this.events[event] = [this.events[event]];
+      }
+
       this.events[event].push({
         callback: func,
         context: context || this
@@ -1824,6 +1528,366 @@ module.exports = Editor;
 
 }));
 
-},{}]},{},[1]);
+},{}],5:[function(require,module,exports){
+/**
+ * Column class.
+ * @partof Editor
+ */
+
+var Model = require('tiny-model');
+var merge = require('./merge');
+
+/**
+ * Accepts object of form {test: {one: 1, two: 2}, result: {one: 1, two: 2}}
+ * and retruns plain version {testOne: 1, testTwo: 2, resultOne: 1, resultTwo: 2}
+ * Useful for setting multiple values to .dataset at once
+ */
+var renderDataAttrs = function(data) {
+  var cache = {};
+  for (var prefix in data) {
+    for (var prop in data[prefix]) {
+      cache[prefix + prop[0].toUpperCase() + prop.slice(1)] = data[prefix][prop];
+    };
+  };
+  return cache;
+};
+
+/**
+ * Capitalize string
+ * @param {string} str
+ */
+var capitalize = function(str) {
+  return str.charAt(0).toUpperCase() + str.substring(1);
+};
+
+var Column = function(parentRow, data) {
+  if (parentRow.class === 'Row') {
+    this.model = new Model(merge({
+      size: {
+        small: 12,
+        medium: 12,
+        large: 12
+      },
+      hide: {
+        small: false,
+        medium: false,
+        large: false
+      },
+      content: '<p>&nbsp;</p>',
+    }, data));
+    //set parrent element
+    this.parent = parentRow;
+    this.el = this.render();
+    this.parent.childrenHolder.appendChild(this.el);
+    CKEDITOR.inline(this.el.getElementsByClassName('column-content')[0], {
+      stylesSet: 'my_custom_style'
+    });
+    this.bindEvents();
+  } else {
+    throw new Error('Parent row should be specifid')
+  }
+};
+
+Column.prototype = {
+  bindEvents: function() {
+    this.model.on('change:size', function(event, name, value) {
+      // set data-size attributes with single command
+      merge(this.el.dataset, renderDataAttrs({size: value}));
+    }, this);
+
+    this.parent.parent.model.on('change:breakpoint', function(event, name, breakpoint) {
+      var currentState = !!this.model.get('hide.' + breakpoint);
+      if (currentState) {
+        this.el.querySelector('.column-hide').classList.add('active');
+      } else {
+        this.el.querySelector('.column-hide').classList.remove('active');
+      }
+    }.bind(this));
+
+    this.el.addEventListener('keyup', function(event) {
+      if (event.target.classList.contains('column-content')) {
+        this.model.set({content: event.target.innerHTML})
+      }
+    }.bind(this));
+
+    this.el.addEventListener('click', function(event) {
+      if (event.target.className === 'column-remove') {
+        this.remove();
+      }
+      if (event.target.classList.contains('column-hide')) {
+        event.target.classList.toggle('active');
+        var parent = event.target.parentElement;
+        var breakpoint = this.parent.parent.model.get('breakpoint');
+        var value = this.model.get('hide.' + breakpoint);
+        this.model.set('hide.' + breakpoint, !value);
+        this.el.dataset['hide' + capitalize(breakpoint)] = !value;
+      }
+    }.bind(this), false);
+
+    this.el.addEventListener('mousedown', function(event) {
+      // resize target;
+      var target = event.target.parentElement;
+      if (event.target.classList.contains('column-content')) {
+        event.stopImmediatePropagation();
+      }
+      if (event.target.classList.contains('column-resize')) {
+        var startPoint = event.clientX;
+        var breakpoint = this.parent.parent.model.get('breakpoint');
+        var step = this.parent.el.clientWidth / 12;
+        var startWidth = Number(this.model.get('size.' + breakpoint) || 1);
+        var rigthSide = target.getClientRects()[0].right;
+        var resizer = function(event) {
+          //return with limited to inverted size of targetso it can't be scaled in negaivesize.
+          //Set step to 50px
+          var additinalSize = Math.max(startWidth * -1, Math.round((event.clientX - rigthSide) / step));
+          this.model.set('size.' + breakpoint, Math.min(12, Math.max(1, startWidth + additinalSize)));
+
+        }.bind(this);
+        var stopResizer = function(event) {
+          window.removeEventListener('mousemove', resizer, false);
+          window.removeEventListener('mousemove', stopResizer, false);
+          this.el.classList.remove('resizing');
+        }.bind(this);
+        this.el.classList.add('resizing');
+        window.addEventListener('mousemove', resizer, false);
+        window.addEventListener('mouseup', stopResizer, false);
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }
+
+    }.bind(this), false);
+
+  },
+  render: function(data) {
+    var template = '<div class="editor-column">' +
+      '<div class="column-content" contenteditable>' + this.model.get('content') + '</div>' +
+      '<div class="column-handle"></div>' +
+      '<div class="column-remove"></div>' +
+      '<div class="column-resize"></div>' +
+      '<div class="column-hide ' + (this.model.get('hide.' + this.parent.parent.model.get('breakpoint')) ? 'active' : '') + '"></div>' +
+    '</div>'
+
+    // create temp element, render column from template as innerHTML and return it
+    var col = ((col = document.createElement('div')).innerHTML = template) && col.children[0];
+
+    merge(col.dataset, renderDataAttrs({size: this.model.get('size')}));
+
+    return col;
+  },
+  remove: function() {
+    this.model.off();
+    this.el.parentElement.removeChild(this.el);
+    this.parent.removeColumn(this);
+  }
+};
+
+module.exports = Column;
+
+},{"./merge":6,"tiny-model":3}],6:[function(require,module,exports){
+/**
+ * Merge. Helper for recursive object merging.
+ * Accepts two or more object and recursively copies theirs properties into the first object.
+ * @param {object} obj, [obj2, ...]
+ */
+
+var merge = function(obj) {
+  // if only one object  - return it
+  if (arguments.length > 1) {
+    // go throughout all arguments
+    for (var x = 1, l = arguments.length; x < l; x++) {
+      // if argument is object
+      if (typeof(arguments[x]) === 'object') {
+        // iterate its properties
+        for (var prop in arguments[x]) {
+          if (arguments[x].hasOwnProperty(prop)) {
+            // if this property is an object and there and origin object has property with same name and type
+            if (typeof(arguments[x][prop]) === 'object' && obj[prop] && typeof(obj[prop]) === 'object') {
+              merge(obj[prop], arguments[x][prop]);
+            } else {
+              obj[prop] = arguments[x][prop];
+            }
+          }
+        }
+      }
+    }
+  }
+  return obj;
+};
+
+module.exports = merge;
+
+},{}],7:[function(require,module,exports){
+/**
+ * Row class.
+ * @partof Editor
+ */
+
+var Model = require('tiny-model');
+var Column = require('./column');
+var Sortable = require('sortablejs');
+var merge = require('./merge');
+var currentSortable;
+/**
+ * Check array of column for equal size
+ * @param {array} columns
+ * @param {number} colNumber
+ * @return {bool}
+ */
+var checkEqualColumns = function(columns, colNumber) {
+  return columns.length < 2 ? colNumber : columns.every(function(col) {
+    var size = col.model.get('size')
+    return size.large == size.medium && size.medium == size.small &&
+      size.small == Math.round(colNumber / columns.length);
+  });
+};
+
+/**
+ * Set equal size to all columns
+ * @param {array} columns
+ * @param {number} colNumber
+ * @return {void}
+ */
+var justifyColumns = function(columns, colNumber) {
+  columns.forEach(function(col) {
+    var size = {};
+    size.large = size.medium = size.small = Math.round(colNumber / columns.length);
+    col.model.set({size: size});
+  }, this);
+};
+
+var Row = function(parentEditor, options) {
+  Object.defineProperty(this, 'class', {
+    value: 'Row',
+    configurable: false,
+    writable: false
+  });
+
+  if (parentEditor.class === 'Editor') {
+    if (options && options.columns) {
+      var columns = options.columns;
+      delete options.columns;
+    }
+    this.model = new Model(merge({
+      collapsed: false,
+      class: '',
+      id: '',
+      style: ''
+    }, options));
+    this.parent = parentEditor;
+    this.el = this.render();
+    this.childrenHolder = this.el.getElementsByClassName('row-columns-holder')[0];
+    this.parent.childrenHolder.appendChild(this.el);
+    this.bindEvents();
+    this.storage = [];
+    if (columns) {
+      while (columns.length) {
+        this.addColumn(columns.shift());
+      }
+    } else {
+      this.addColumn();
+    }
+
+    var sorter = this.sortColumns.bind(this);
+    new Sortable(this.childrenHolder, {
+      group: 'column',
+      handle: '.column-handle',
+      draggable: '.editor-column',
+      ghostClass: 'sortable-ghost',
+      onAdd: sorter,
+      onRemove: sorter,
+      onUpdate: sorter
+    });
+  } else {
+    throw new Error('Parent editor should be specified');
+  }
+};
+
+Row.prototype = {
+  bindEvents: function() {
+    this.el.addEventListener('click', function(event) {
+
+      if (event.target.className === 'row-remove') {
+        this.remove();
+      } else
+      if (event.target.className === 'column-add') {
+
+        if (checkEqualColumns(this.storage, 12)) { //create equal columns
+          this.addColumn();
+          justifyColumns(this.storage, 12);
+        } else { //create simple column
+          this.addColumn();
+        }
+      }
+    }.bind(this));
+
+    this.el.addEventListener('keyup', function(event) {
+      var prefix;
+      if (/^(style|class|id)$/.test(event.target.name)) {
+        prefix = event.target.name === 'class' ? 'editor-row ' : '';
+        this.model.set(event.target.name, event.target.value);
+        this.el.setAttribute(event.target.name, prefix + event.target.value);
+      }
+    }.bind(this), false);
+  },
+  render: function(data) {
+    var id = this.model.get('id') || '';
+    var className = this.model.get('class') || '';
+    var style = this.model.get('style') || '';
+
+    var template = '' +
+    '<div class="editor-row ' + className + '" id="' + id + '" ' + 'style="' + style + '">' +
+      '<input class="row-collapse" type="checkbox" value="1">' +
+      '<div class="row-handle"></div>' +
+      '<div class="row-columns-holder"></div>' +
+      '<div class="column-add"></div>' +
+      '<div class="row-remove"></div>' +
+      '<div class="row-style-holder"><input placeholder="style" name="style" value="' + style + '"></div>' +
+      '<div class="row-class-holder"><input placeholder="class" name="class" value="' + className + '"></div>' +
+      '<div class="row-id-holder"><input placeholder="id" name="id" value="' + id + '"></div>' +
+    '</div>';
+
+    // create temp element, render row from template as innerHTML and return it
+    return ((row = document.createElement('div')).innerHTML = template) && row.children[0];
+
+  },
+  addColumn: function(options) {
+    this.storage.push(new Column(this, options));
+  },
+  removeColumn: function(obj) {
+    this.storage.splice(this.storage.indexOf(obj), 1);
+    if (this.storage.length === 0) {
+      this.remove();
+    }
+  },
+  sortColumns: function(event) {
+    event.stopPropagation();
+    if (event.type === 'remove') {
+      currentSortable = this.storage.splice(event.oldIndex, 1);
+    }
+    if (event.type === 'add') {
+      this.storage.splice(event.newIndex, 0, currentSortable);
+    }
+    if (event.type === 'update') {
+      currentSortable = this.storage[event.newIndex];
+      this.storage[event.newIndex] = this.storage[event.oldIndex];
+      this.storage[event.oldIndex] = currentSortable;
+    }
+  },
+  remove: function() {
+    // remove all children, they will remove themself from this storege
+    while (this.storage.length) {
+      this.storage[0].remove();
+    }
+    // then remove row from dom
+    // check if it is a part of dom (in case if call this method twice)
+    if (this.el.parentElement) {
+      this.el.parentElement.removeChild(this.el);
+    }
+  }
+};
+
+module.exports = Row;
+
+},{"./column":5,"./merge":6,"sortablejs":2,"tiny-model":3}]},{},[1]);
 
 //# sourceMappingURL=editor.js.map
