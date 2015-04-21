@@ -68,6 +68,48 @@ var justifyColumns = function(columns, colNumber) {
   }, this);
 };
 
+function configCKEDITOR() {
+  CKEDITOR.disableAutoInline = true;
+  CKEDITOR.stylesSet.add('my_custom_style', [
+      // Inline styles.
+    {
+      name: 'button',
+      element: 'span',
+      attributes: {
+        'class': 'button'
+      }
+    },
+    {
+      name: 'note text',
+      element: 'p',
+      attributes: {
+        'class': 'note-text'
+      }
+    },
+    {
+      name: 'text priority',
+      element: 'p',
+      attributes: {
+        'class': 'priority-block'
+      }
+    },
+    {
+      name: 'marker black',
+      element: 'ul',
+      attributes: {
+        'class': 'black-marker'
+      }
+    },
+    {
+      name: 'clear both',
+      element: 'p',
+      attributes: {
+        'class': 'clear-both'
+      }
+    }
+  ]);
+}
+
 var Editor = function(parent, data, options) {
   //init editor
   this.model = new Model(merge({
@@ -121,7 +163,7 @@ var Editor = function(parent, data, options) {
     ghostClass: 'sortable-ghost',
     onUpdate: this.sortRows.bind(this)
   });
-  //configCKEDITOR();
+  configCKEDITOR();
 };
 
 var currentSortable;
@@ -402,6 +444,9 @@ var Column = function(parentRow, data) {
     this.parent = parentRow;
     this.el = this.render();
     this.parent.childrenHolder.appendChild(this.el);
+    CKEDITOR.inline(this.el.getElementsByClassName('column-content')[0], {
+      stylesSet: 'my_custom_style'
+    });
     this.bindEvents();
   } else {
     throw new Error('Parent row should be specifid')
@@ -491,10 +536,6 @@ Column.prototype = {
     var col = ((col = document.createElement('div')).innerHTML = template) && col.children[0];
 
     merge(col.dataset, renderDataAttrs({size: this.model.get('size')}));
-
-    //  CKEDITOR.inline(colContent, {
-    //    stylesSet: 'my_custom_style'
-    //  });
 
     return col;
   },
@@ -1637,9 +1678,9 @@ module.exports = Editor;
           }
         } else {
           // if not an object - then we can't set child properties to it, throw an error
-          throw new Error('\'name\' is not an object');
+          throw new Error(curPropPath + 'is not an object');
         }
-      } else {
+      } else if (this.state[arguments[0]] !== arguments[1]) {
         this.state[arguments[0]] = arguments[1];
         this.trigger('change:' + arguments[0], arguments[0], arguments[1]);
       }
@@ -1647,8 +1688,10 @@ module.exports = Editor;
       var data = arguments[0];
       for (var prop in data) {
         if (data.hasOwnProperty(prop)) {
-          this.state[prop] = data[prop];
-          this.trigger('change:' + prop, prop, data[prop]);
+          if (this.state[prop] !== data[prop]) {
+            this.state[prop] = data[prop];
+            this.trigger('change:' + prop, prop, data[prop]);
+          }
         }
       }
     }
@@ -1745,11 +1788,6 @@ module.exports = Editor;
     on: function(event, func, context) {
       this.events || (this.events = {});
       this.events[event] || (this.events[event] = []);
-
-      //if event was defined as a hash - convert to array representation
-      if (typeof(this.events[event]) === 'function') {
-        this.events[event] = [this.events[event]];
-      }
 
       this.events[event].push({
         callback: func,
