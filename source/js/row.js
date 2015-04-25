@@ -37,6 +37,8 @@ var justifyColumns = function(columns, colNumber) {
 };
 
 var Row = function(parentEditor, options) {
+
+  // Define class name
   Object.defineProperty(this, 'class', {
     value: 'Row',
     configurable: false,
@@ -89,8 +91,7 @@ Row.prototype = {
 
       if (event.target.className === 'row-remove') {
         this.remove();
-      } else
-      if (event.target.className === 'column-add') {
+      } else if (event.target.className === 'column-add') {
 
         if (checkEqualColumns(this.storage, 12)) { //create equal columns
           this.addColumn();
