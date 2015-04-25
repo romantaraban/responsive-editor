@@ -30,6 +30,13 @@ var capitalize = function(str) {
 };
 
 var Column = function(parentRow, data) {
+  //set class name
+  Object.defineProperty(this, 'class', {
+    value: 'Column',
+    configurable: false,
+    writable: false
+  });
+
   if (parentRow.class === 'Row') {
     this.model = new Model(merge({
       size: {

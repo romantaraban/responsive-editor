@@ -1,8 +1,15 @@
+/**!
+ * Responsive editor
+ * @author romantaraban <rom.taraban@gmail.com>
+ * @license MIT
+ *
+ * Editor for responsive content
+ */
+
 var Model = require('tiny-model');
 var Sortable = require('sortablejs');
 var merge = require('./merge');
 var Row = require('./row');
-var Column = require('./column');
 
 var currentSortable;
 
@@ -245,10 +252,4 @@ Editor.prototype = {
   }
 };
 
-//for test purposes
-window._Editor = Editor;
-window._Row = Row;
-window._Column = Column;
-
-window.Editor = Editor;
 module.exports = Editor;

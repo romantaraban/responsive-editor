@@ -1,12 +1,8 @@
 (function() {
   var assert = chai.assert;
-
-  var Editor = _Editor;
-  var Row = _Row;
-  var Column = _Column;
-
   var click;
-   // Sane browsers
+
+  // Sane browsers
   try {
     // Chrome, Safari, Firefox
     click = new Event('click', {
@@ -18,8 +14,7 @@
     click.initEvent('click', true, false);
   }
 
-
-  var editor = new Editor(document.body, null, {
+  var editor = new window.Editor(document.body, null, {
     useIframe: false,
     cssPath: './editor.css'
   });
@@ -29,8 +24,7 @@
       editor.clear();
     });
 
-    it('should haave immutable property class', function() {
-      console.log(editor.class)
+    it('should have immutable property class', function() {
       editor.class = 'test';
       assert.equal('Editor', editor.class);
     });
@@ -46,6 +40,7 @@
     describe('clear()', function() {
 
       it('should remove content from editor', function() {
+        //first row was added at creating of editor
         editor.clear();
         assert.equal(0, editor.storage.length);
       });
@@ -139,20 +134,16 @@
     var column;
     beforeEach(function() {
       editor.clear();
-      row = new Row(editor);
+      editor.addRow();
+      row = editor.storage[0];
     });
     afterEach(function() {
       row.remove();
     });
-    
-    it('should haave immutable property class', function() {
-      console.log(row.class)
+
+    it('should have immutable property class', function() {
       row.class = 'test';
       assert.equal('Row', row.class);
-    });
-    
-    it('should be able to create new row', function() {
-      assert.equal(true, row instanceof Row);
     });
 
     it('row element in child of editor', function() {
@@ -165,9 +156,9 @@
     });
 
     it('should be able to remove column from storage', function() {
-      assert.equal(1, row.storage.length);
-      row.removeColumn(column);
-      assert.equal(0, row.storage.length);
+      assert.equal(1, editor.storage.length);
+      row.remove();
+      assert.equal(0, editor.storage.length);
     });
 
     it('should remove itsef from DOM', function() {
@@ -181,6 +172,12 @@
       assert.equal(2, row.storage.length);
       row.remove();
       assert.equal(0, row.storage.length);
+    });
+
+    it('should removes column with row if there is only one column', function() {
+      column = editor.storage[0].storage[0];
+      column.remove();
+      assert.equal(0,  editor.storage.length);
     });
 
     it('shoul be able to create a row from serialized data', function() {
@@ -203,16 +200,15 @@
     var row;
     var column;
     beforeEach(function() {
-      row = new Row(editor);
+      editor.clear();
+      editor.addRow();
+      row = editor.storage[0];
       column = row.storage[0];
     });
-    afterEach(function() {
-      editor.clear();
-      row.remove();
-    });
 
-    it('should be able to create new column', function() {
-      assert.equal(true, column instanceof Column);
+    it('should have immutable property class', function() {
+      column.class = 'test';
+      assert.equal('Column', column.class);
     });
 
     it('column element is child of row', function() {
@@ -229,13 +225,6 @@
       assert.equal(row.childrenHolder, column.el.parentElement);
       column.remove();
       assert.equal(null, column.el.parentElement);
-    });
-
-    it('should removes column with row if there is only one column', function() {
-      editor.clear();
-      assert.equal(1, $(editor.el).find('.editor-column').length);
-      column.remove();
-      assert.equal(0, $(editor.el).find('.editor-column').length);
     });
 
     it('should build a correct column from data ', function() {
@@ -376,7 +365,7 @@
 
     describe('Row attributes', function() {
       var event = document.createEvent('KeyboardEvent');
-       // Sane browsers
+      // Sane browsers
       try {
         // Chrome, Safari, Firefox
         event = new Event('keyup', {

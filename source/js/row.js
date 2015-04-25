@@ -155,10 +155,19 @@ Row.prototype = {
     }
   },
   remove: function() {
-    // remove all children, they will remove themself from this storege
-    while (this.storage.length) {
-      this.storage[0].remove();
+    // remove all children, they will remove themself from this storage
+    if (this.storage.length) {
+      while (this.storage.length) {
+        this.storage[0].remove();
+      }
+      return false;
     }
+
+    // remove itself from editor storage
+    if (this.parent.storage.indexOf(this) !== -1) {
+      this.parent.storage.splice(this.parent.storage.indexOf(this), 1);
+    }
+
     // then remove row from dom
     // check if it is a part of dom (in case if call this method twice)
     if (this.el.parentElement) {

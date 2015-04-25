@@ -11,7 +11,7 @@ var jscs = require('gulp-jscs');
 var sass = require('gulp-sass');
 var mochaPhantomJS = require('gulp-mocha-phantomjs');
 var express = require('express');
-var refresh = require('gulp-livereload');  
+var refresh = require('gulp-livereload');
 var tinylr  = require('tiny-lr');
 var lrserver = tinylr();
 // paths
@@ -37,7 +37,7 @@ gulp.task('express', function() {
 });
 
 // livereload
-gulp.task('lr-server', function() {  
+gulp.task('lr-server', function() {
   lrserver.listen(3001, function(err) {
     if (err) {
       return console.log(err);
@@ -72,14 +72,16 @@ gulp.task('test', function() {
       return gulp.src(testPath, {read: false})
         .pipe(mocha({reporter: 'nyan'}))
         .on('error', function(err) {
-          console.log(err)
+          console.log(err);
         });
     }
-  } 
+  }
 });
 
 // build js files into single bundle
 gulp.task('build-js', function() {
+
+  watchify.args.standalone = 'Editor';
   var bundler = watchify(browserify(jsEntryPoint, watchify.args));
   var bundle = function() {
     return bundler.bundle()
@@ -92,12 +94,12 @@ gulp.task('build-js', function() {
         .pipe(sourcemaps.write('./')) // writes .map file
       //
       .pipe(gulp.dest(buildPath))
-      
+
   }
   bundler.on('update', bundle); // on any dep update, runs the bundler
   bundler.on('log', gutil.log); // output build logs to terminal
   return bundle();
-}); 
+});
 
 // sass compiler
 gulp.task('sass', function() {
@@ -110,13 +112,13 @@ gulp.task('sass', function() {
 });
 
 // task runner
-gulp.task('default', function() {  
+gulp.task('default', function() {
   gulp.run('clean-screen', 'lr-server', 'express', 'sass', 'build-js');
 
   gulp.watch(jsPath, ['clean-screen', 'lint', 'test', 'build-js']);
   gulp.watch(testPath, ['clean-screen', 'lint', 'test']);
   gulp.watch(sassPath, ['clean-screen', 'sass']);
-  
+
   gulp.watch(['*.*', './test/*.js'], function(event) {
     return gulp.src(event.path).pipe(refresh(lrserver));
   });

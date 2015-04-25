@@ -1,9 +1,16 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.Editor = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/**!
+ * Responsive editor
+ * @author romantaraban <rom.taraban@gmail.com>
+ * @license MIT
+ *
+ * Editor for responsive content
+ */
+
 var Model = require('tiny-model');
 var Sortable = require('sortablejs');
 var merge = require('./merge');
 var Row = require('./row');
-var Column = require('./column');
 
 var currentSortable;
 
@@ -246,15 +253,9 @@ Editor.prototype = {
   }
 };
 
-//for test purposes
-window._Editor = Editor;
-window._Row = Row;
-window._Column = Column;
-
-window.Editor = Editor;
 module.exports = Editor;
 
-},{"./column":5,"./merge":6,"./row":7,"sortablejs":2,"tiny-model":3}],2:[function(require,module,exports){
+},{"./merge":6,"./row":7,"sortablejs":2,"tiny-model":3}],2:[function(require,module,exports){
 /**!
  * Sortable
  * @author	RubaXa   <trash@rubaxa.org>
@@ -1561,6 +1562,13 @@ var capitalize = function(str) {
 };
 
 var Column = function(parentRow, data) {
+  //set class name
+  Object.defineProperty(this, 'class', {
+    value: 'Column',
+    configurable: false,
+    writable: false
+  });
+
   if (parentRow.class === 'Row') {
     this.model = new Model(merge({
       size: {
@@ -1874,10 +1882,19 @@ Row.prototype = {
     }
   },
   remove: function() {
-    // remove all children, they will remove themself from this storege
-    while (this.storage.length) {
-      this.storage[0].remove();
+    // remove all children, they will remove themself from this storage
+    if (this.storage.length) {
+      while (this.storage.length) {
+        this.storage[0].remove();
+      }
+      return false;
     }
+
+    // remove itself from editor storage
+    if (this.parent.storage.indexOf(this) !== -1) {
+      this.parent.storage.splice(this.parent.storage.indexOf(this), 1);
+    }
+
     // then remove row from dom
     // check if it is a part of dom (in case if call this method twice)
     if (this.el.parentElement) {
@@ -1888,6 +1905,6 @@ Row.prototype = {
 
 module.exports = Row;
 
-},{"./column":5,"./merge":6,"sortablejs":2,"tiny-model":3}]},{},[1]);
-
+},{"./column":5,"./merge":6,"sortablejs":2,"tiny-model":3}]},{},[1])(1)
+});
 //# sourceMappingURL=editor.js.map
