@@ -38,4 +38,4 @@ Render editor's state to html, return html string
 Render editor's state to html, and place it inside target element
 
 
-MIT &copy Roman Taraban
+MIT © Roman Taraban
