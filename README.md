@@ -36,3 +36,6 @@ Render editor's state to html, return html string
 
 ### editor.renderTo(target)
 Render editor's state to html, and place it inside target element
+
+
+MIT &copy Roman Taraban
