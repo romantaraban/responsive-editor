@@ -176,14 +176,14 @@ Editor.prototype = {
    * Serialize current state and return.
    * @param {bool} toJSON
    **/
-  serialize: function(toSJON) {
+  serialize: function(toJSON) {
     var data = this.storage.map(function(row) {
       return merge({columns: row.storage.map(function(col) {
         // make data sanitation here
         return merge({}, col.model.state, {content: col.model.state.content});
       })}, row.model.state);
     });
-    return toSJON ? data : JSON.stringify(data);
+    return toJSON ? data : JSON.stringify(data);
   },
 
   /**
@@ -207,6 +207,7 @@ Editor.prototype = {
 
   /**
    * Parse serialized data and render it to HTML.
+   * @return {string} html
    */
   renderHTML: function() {
     return this.serialize(true).reduce(function(html, row) {
