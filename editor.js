@@ -1727,7 +1727,7 @@ Column.prototype.bindEvents = function() {
       }.bind(this);
       var stopResizer = function(event) {
         window.removeEventListener('mousemove', resizer, false);
-        window.removeEventListener('mousemove', stopResizer, false);
+        window.removeEventListener('mouseup', stopResizer, false);
         this.el.classList.remove('resizing');
       }.bind(this);
       this.el.classList.add('resizing');
