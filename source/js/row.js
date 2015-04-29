@@ -142,10 +142,19 @@ Row.prototype = {
   },
   addColumn: function(options) {
     var that = this;
+
+    // create new column
     var column = new Column(this, options);
+
+    // append to dom
+    this.childrenHolder.appendChild(column.el);
+
+    // listen to remove event
     column.on('remove', function() {
       that.removeColumn(column);
     });
+
+    //add to internal storage
     this.storage.push(column);
   },
   removeColumn: function(column) {

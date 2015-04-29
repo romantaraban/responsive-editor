@@ -1594,7 +1594,7 @@ module.exports = PubSub;
 },{}],6:[function(require,module,exports){
 /**
  * Column class.
- * @partof Editor
+ * @part of Editor
  */
 
 var Model = require('tiny-model');
@@ -1624,6 +1624,14 @@ var capitalize = function(str) {
   return str.charAt(0).toUpperCase() + str.substring(1);
 };
 
+/**
+ * Return current breakpoint of editor
+ * @param {Editor object} editor
+ */
+var getBreakpoint = function(editor) {
+  return editor.model.get('breakpoint');
+};
+
 var Column = function(parentRow, data) {
   // Set class name
   Object.defineProperty(this, 'class', {
@@ -1647,13 +1655,15 @@ var Column = function(parentRow, data) {
       content: '<p>&nbsp;</p>',
     }, data));
 
-    // Set parrent element
+    // Set parent element
     this.parent = parentRow;
+    this.editor = parentRow.parent;
     this.el = this.render();
-    this.parent.childrenHolder.appendChild(this.el);
+
     CKEDITOR.inline(this.el.getElementsByClassName('column-content')[0], {
       stylesSet: 'my_custom_style'
     });
+
     this.bindEvents();
   } else {
     throw new Error('Parent row should be specifid')
@@ -1662,17 +1672,13 @@ var Column = function(parentRow, data) {
 
 Column.prototype = Object.create(PubSub.prototype);
 
-Column.prototype.getBreakpoint = function() {
-  return this.parent.parent.model.get('breakpoint');
-};
-
 Column.prototype.bindEvents = function() {
   this.model.on('change:size', function(event, name, value) {
     // set data-size attributes with single command
     merge(this.el.dataset, renderDataAttrs({size: value}));
   }, this);
 
-  this.parent.parent.model.on('change:breakpoint', function(event, name, breakpoint) {
+  this.editor.model.on('change:breakpoint', function(event, name, breakpoint) {
     var currentState = !!this.model.get('hide.' + breakpoint);
     if (currentState) {
       this.el.querySelector('.column-hide').classList.add('active');
@@ -1693,7 +1699,7 @@ Column.prototype.bindEvents = function() {
     }
     if (event.target.classList.contains('column-hide')) {
       event.target.classList.toggle('active');
-      var breakpoint = this.getBreakpoint();
+      var breakpoint = getBreakpoint(this.editor);
       var value = this.model.get('hide.' + breakpoint);
       this.model.set('hide.' + breakpoint, !value);
       this.el.dataset['hide' + capitalize(breakpoint)] = !value;
@@ -1708,7 +1714,7 @@ Column.prototype.bindEvents = function() {
     }
     if (event.target.classList.contains('column-resize')) {
       var startPoint = event.clientX;
-      var breakpoint = this.getBreakpoint();
+      var breakpoint = getBreakpoint(this.editor);
       var step = this.parent.el.clientWidth / 12;
       var startWidth = Number(this.model.get('size.' + breakpoint) || 1);
       var rigthSide = target.getClientRects()[0].right;
@@ -1741,7 +1747,7 @@ Column.prototype.render = function(data) {
     '<div class="column-handle"></div>' +
     '<div class="column-remove"></div>' +
     '<div class="column-resize"></div>' +
-    '<div class="column-hide ' + (this.model.get('hide.' + this.getBreakpoint()) ? 'active' : '') + '"></div>' +
+    '<div class="column-hide ' + (this.model.get('hide.' + getBreakpoint(this.editor)) ? 'active' : '') + '"></div>' +
   '</div>'
 
   // create temp element, render column from template as innerHTML and return it
@@ -1937,10 +1943,19 @@ Row.prototype = {
   },
   addColumn: function(options) {
     var that = this;
+
+    // create new column
     var column = new Column(this, options);
+
+    // append to dom
+    this.childrenHolder.appendChild(column.el);
+
+    // listen to remove event
     column.on('remove', function() {
       that.removeColumn(column);
     });
+
+    //add to internal storage
     this.storage.push(column);
   },
   removeColumn: function(column) {
