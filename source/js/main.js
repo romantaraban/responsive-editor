@@ -13,10 +13,11 @@ var Row = require('./row');
 
 var currentSortable;
 
+// Config ckeditor
 function configCKEDITOR() {
   CKEDITOR.disableAutoInline = true;
   CKEDITOR.stylesSet.add('my_custom_style', [
-      // Inline styles.
+    // Inline styles.
     {
       name: 'button',
       element: 'span',

@@ -93,10 +93,12 @@ Row.prototype = {
         this.remove();
       } else if (event.target.className === 'column-add') {
 
-        if (checkEqualColumns(this.storage, 12)) { //create equal columns
+        if (checkEqualColumns(this.storage, 12)) {
+          // create equal columns
           this.addColumn();
           justifyColumns(this.storage, 12);
-        } else { //create simple column
+        } else {
+          // create simple column
           this.addColumn();
         }
       }
@@ -110,6 +112,12 @@ Row.prototype = {
         this.el.setAttribute(event.target.name, prefix + event.target.value);
       }
     }.bind(this), false);
+
+    this.el.addEventListener('change', function(event) {
+      if (event.target.classList.contains('row-collapse')) {
+        this.model.set({collapsed: event.target.checked})
+      }
+    }.bind(this));
   },
   render: function(data) {
     var id = this.model.get('id') || '';
@@ -133,10 +141,17 @@ Row.prototype = {
 
   },
   addColumn: function(options) {
-    this.storage.push(new Column(this, options));
+    var that = this;
+    var column = new Column(this, options);
+    column.on('remove', function() {
+      that.removeColumn(column);
+    });
+    this.storage.push(column);
   },
-  removeColumn: function(obj) {
-    this.storage.splice(this.storage.indexOf(obj), 1);
+  removeColumn: function(column) {
+    this.storage.splice(this.storage.indexOf(column), 1);
+    column.el.parentElement.removeChild(column.el);
+
     if (this.storage.length === 0) {
       this.remove();
     }

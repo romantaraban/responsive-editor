@@ -14,10 +14,11 @@ var Row = require('./row');
 
 var currentSortable;
 
+// Config ckeditor
 function configCKEDITOR() {
   CKEDITOR.disableAutoInline = true;
   CKEDITOR.stylesSet.add('my_custom_style', [
-      // Inline styles.
+    // Inline styles.
     {
       name: 'button',
       element: 'span',
@@ -177,14 +178,14 @@ Editor.prototype = {
    * Serialize current state and return.
    * @param {bool} toJSON
    **/
-  serialize: function(toSJON) {
+  serialize: function(toJSON) {
     var data = this.storage.map(function(row) {
       return merge({columns: row.storage.map(function(col) {
         // make data sanitation here
         return merge({}, col.model.state, {content: col.model.state.content});
       })}, row.model.state);
     });
-    return toSJON ? data : JSON.stringify(data);
+    return toJSON ? data : JSON.stringify(data);
   },
 
   /**
@@ -208,6 +209,7 @@ Editor.prototype = {
 
   /**
    * Parse serialized data and render it to HTML.
+   * @return {string} html
    */
   renderHTML: function() {
     return this.serialize(true).reduce(function(html, row) {
@@ -255,7 +257,67 @@ Editor.prototype = {
 
 module.exports = Editor;
 
-},{"./merge":6,"./row":7,"sortablejs":2,"tiny-model":3}],2:[function(require,module,exports){
+},{"./merge":7,"./row":8,"sortablejs":3,"tiny-model":4}],2:[function(require,module,exports){
+var PubSub = function() {};
+
+PubSub.prototype = {
+  trigger: function(event, data) {
+    if (!this.events || !this.events[event]) {
+      return false;
+    }
+
+    var subscribers = this.events[event],
+      len = subscribers ? subscribers.length : 0;
+
+    while (len--) {
+      subscribers[len].callback.call(subscribers[len].context, event, data);
+    }
+
+    return this;
+  },
+  on: function(event, func, context) {
+    this.events || (this.events = {});
+    this.events[event] || (this.events[event] = []);
+
+    //if event was defined as a hash - convert to array representation
+    if (typeof(this.events[event]) === 'function') {
+      this.events[event] = [this.events[event]];
+    }
+
+    this.events[event].push({
+      callback: func,
+      context: context || this
+    });
+
+    return this;
+  },
+  off: function(event, func) {
+    function remover(e, f, events) {
+      for (i = 0; i < events[e].length; i++) {
+        if (events[e][i].callback === f) {
+          events[e].splice(i, 1);
+        }
+      }
+    }
+    if (arguments.length === 0) {
+      this.events = {};
+    } else if (arguments.length === 1) {
+      if (typeof(arguments[0]) === 'string') {
+        this.events[arguments[0]] = [];
+      } else if (typeof(arguments[0]) === 'function') {
+        for (var e in this.events) {
+          remover(e, arguments[0], this.events);
+        }
+      }
+    } else if (arguments.length === 2 && typeof(arguments[0]) === 'string' && typeof(arguments[1]) === 'function') {
+      remover(event, func, this.events);
+    }
+  }
+};
+
+module.exports = PubSub;
+
+},{}],3:[function(require,module,exports){
 /**!
  * Sortable
  * @author	RubaXa   <trash@rubaxa.org>
@@ -1308,7 +1370,7 @@ module.exports = Editor;
 	return Sortable;
 });
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 /**!
  * TinyModel
  * @author romantaraban <rom.taraban@gmail.com>
@@ -1444,7 +1506,7 @@ module.exports = Editor;
 
 }));
 
-},{"pubsub":4}],4:[function(require,module,exports){
+},{"pubsub":5}],5:[function(require,module,exports){
 /**!
  * PubSub
  * @author romantaraban <rom.taraban@gmail.com>
@@ -1529,13 +1591,14 @@ module.exports = Editor;
 
 }));
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /**
  * Column class.
  * @partof Editor
  */
 
 var Model = require('tiny-model');
+var PubSub = require('pubsub');
 var merge = require('./merge');
 
 /**
@@ -1562,7 +1625,7 @@ var capitalize = function(str) {
 };
 
 var Column = function(parentRow, data) {
-  //set class name
+  // Set class name
   Object.defineProperty(this, 'class', {
     value: 'Column',
     configurable: false,
@@ -1583,7 +1646,8 @@ var Column = function(parentRow, data) {
       },
       content: '<p>&nbsp;</p>',
     }, data));
-    //set parrent element
+
+    // Set parrent element
     this.parent = parentRow;
     this.el = this.render();
     this.parent.childrenHolder.appendChild(this.el);
@@ -1596,102 +1660,106 @@ var Column = function(parentRow, data) {
   }
 };
 
-Column.prototype = {
-  bindEvents: function() {
-    this.model.on('change:size', function(event, name, value) {
-      // set data-size attributes with single command
-      merge(this.el.dataset, renderDataAttrs({size: value}));
-    }, this);
+Column.prototype = Object.create(PubSub.prototype);
 
-    this.parent.parent.model.on('change:breakpoint', function(event, name, breakpoint) {
-      var currentState = !!this.model.get('hide.' + breakpoint);
-      if (currentState) {
-        this.el.querySelector('.column-hide').classList.add('active');
-      } else {
-        this.el.querySelector('.column-hide').classList.remove('active');
-      }
-    }.bind(this));
+Column.prototype.getBreakpoint = function() {
+  return this.parent.parent.model.get('breakpoint');
+};
 
-    this.el.addEventListener('keyup', function(event) {
-      if (event.target.classList.contains('column-content')) {
-        this.model.set({content: event.target.innerHTML})
-      }
-    }.bind(this));
+Column.prototype.bindEvents = function() {
+  this.model.on('change:size', function(event, name, value) {
+    // set data-size attributes with single command
+    merge(this.el.dataset, renderDataAttrs({size: value}));
+  }, this);
 
-    this.el.addEventListener('click', function(event) {
-      if (event.target.className === 'column-remove') {
-        this.remove();
-      }
-      if (event.target.classList.contains('column-hide')) {
-        event.target.classList.toggle('active');
-        var parent = event.target.parentElement;
-        var breakpoint = this.parent.parent.model.get('breakpoint');
-        var value = this.model.get('hide.' + breakpoint);
-        this.model.set('hide.' + breakpoint, !value);
-        this.el.dataset['hide' + capitalize(breakpoint)] = !value;
-      }
-    }.bind(this), false);
+  this.parent.parent.model.on('change:breakpoint', function(event, name, breakpoint) {
+    var currentState = !!this.model.get('hide.' + breakpoint);
+    if (currentState) {
+      this.el.querySelector('.column-hide').classList.add('active');
+    } else {
+      this.el.querySelector('.column-hide').classList.remove('active');
+    }
+  }.bind(this));
 
-    this.el.addEventListener('mousedown', function(event) {
-      // resize target;
-      var target = event.target.parentElement;
-      if (event.target.classList.contains('column-content')) {
-        event.stopImmediatePropagation();
-      }
-      if (event.target.classList.contains('column-resize')) {
-        var startPoint = event.clientX;
-        var breakpoint = this.parent.parent.model.get('breakpoint');
-        var step = this.parent.el.clientWidth / 12;
-        var startWidth = Number(this.model.get('size.' + breakpoint) || 1);
-        var rigthSide = target.getClientRects()[0].right;
-        var resizer = function(event) {
-          //return with limited to inverted size of targetso it can't be scaled in negaivesize.
-          //Set step to 50px
-          var additinalSize = Math.max(startWidth * -1, Math.round((event.clientX - rigthSide) / step));
-          this.model.set('size.' + breakpoint, Math.min(12, Math.max(1, startWidth + additinalSize)));
+  this.el.addEventListener('keyup', function(event) {
+    if (event.target.classList.contains('column-content')) {
+      this.model.set({content: event.target.innerHTML})
+    }
+  }.bind(this));
 
-        }.bind(this);
-        var stopResizer = function(event) {
-          window.removeEventListener('mousemove', resizer, false);
-          window.removeEventListener('mousemove', stopResizer, false);
-          this.el.classList.remove('resizing');
-        }.bind(this);
-        this.el.classList.add('resizing');
-        window.addEventListener('mousemove', resizer, false);
-        window.addEventListener('mouseup', stopResizer, false);
-        event.stopImmediatePropagation();
-        event.preventDefault();
-      }
+  this.el.addEventListener('click', function(event) {
+    if (event.target.className === 'column-remove') {
+      this.remove();
+    }
+    if (event.target.classList.contains('column-hide')) {
+      event.target.classList.toggle('active');
+      var breakpoint = this.getBreakpoint();
+      var value = this.model.get('hide.' + breakpoint);
+      this.model.set('hide.' + breakpoint, !value);
+      this.el.dataset['hide' + capitalize(breakpoint)] = !value;
+    }
+  }.bind(this), false);
 
-    }.bind(this), false);
+  this.el.addEventListener('mousedown', function(event) {
+    // resize target;
+    var target = event.target.parentElement;
+    if (event.target.classList.contains('column-content')) {
+      event.stopImmediatePropagation();
+    }
+    if (event.target.classList.contains('column-resize')) {
+      var startPoint = event.clientX;
+      var breakpoint = this.getBreakpoint();
+      var step = this.parent.el.clientWidth / 12;
+      var startWidth = Number(this.model.get('size.' + breakpoint) || 1);
+      var rigthSide = target.getClientRects()[0].right;
+      var resizer = function(event) {
+        //return with limited to inverted size of targetso it can't be scaled in negaivesize.
+        //Set step to 50px
+        var additinalSize = Math.max(startWidth * -1, Math.round((event.clientX - rigthSide) / step));
+        this.model.set('size.' + breakpoint, Math.min(12, Math.max(1, startWidth + additinalSize)));
 
-  },
-  render: function(data) {
-    var template = '<div class="editor-column">' +
-      '<div class="column-content" contenteditable>' + this.model.get('content') + '</div>' +
-      '<div class="column-handle"></div>' +
-      '<div class="column-remove"></div>' +
-      '<div class="column-resize"></div>' +
-      '<div class="column-hide ' + (this.model.get('hide.' + this.parent.parent.model.get('breakpoint')) ? 'active' : '') + '"></div>' +
-    '</div>'
+      }.bind(this);
+      var stopResizer = function(event) {
+        window.removeEventListener('mousemove', resizer, false);
+        window.removeEventListener('mousemove', stopResizer, false);
+        this.el.classList.remove('resizing');
+      }.bind(this);
+      this.el.classList.add('resizing');
+      window.addEventListener('mousemove', resizer, false);
+      window.addEventListener('mouseup', stopResizer, false);
+      event.stopImmediatePropagation();
+      event.preventDefault();
+    }
 
-    // create temp element, render column from template as innerHTML and return it
-    var col = ((col = document.createElement('div')).innerHTML = template) && col.children[0];
+  }.bind(this), false);
 
-    merge(col.dataset, renderDataAttrs({size: this.model.get('size')}));
+};
 
-    return col;
-  },
-  remove: function() {
-    this.model.off();
-    this.el.parentElement.removeChild(this.el);
-    this.parent.removeColumn(this);
-  }
+Column.prototype.render = function(data) {
+  var template = '<div class="editor-column">' +
+    '<div class="column-content" contenteditable>' + this.model.get('content') + '</div>' +
+    '<div class="column-handle"></div>' +
+    '<div class="column-remove"></div>' +
+    '<div class="column-resize"></div>' +
+    '<div class="column-hide ' + (this.model.get('hide.' + this.getBreakpoint()) ? 'active' : '') + '"></div>' +
+  '</div>'
+
+  // create temp element, render column from template as innerHTML and return it
+  var col = ((col = document.createElement('div')).innerHTML = template) && col.children[0];
+
+  merge(col.dataset, renderDataAttrs({size: this.model.get('size')}));
+
+  return col;
+};
+
+Column.prototype.remove = function() {
+  this.model.off();
+  this.trigger('remove');
 };
 
 module.exports = Column;
 
-},{"./merge":6,"tiny-model":3}],6:[function(require,module,exports){
+},{"./merge":7,"pubsub":2,"tiny-model":4}],7:[function(require,module,exports){
 /**
  * Merge. Helper for recursive object merging.
  * Accepts two or more object and recursively copies theirs properties into the first object.
@@ -1724,7 +1792,7 @@ var merge = function(obj) {
 
 module.exports = merge;
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 /**
  * Row class.
  * @partof Editor
@@ -1764,6 +1832,8 @@ var justifyColumns = function(columns, colNumber) {
 };
 
 var Row = function(parentEditor, options) {
+
+  // Define class name
   Object.defineProperty(this, 'class', {
     value: 'Row',
     configurable: false,
@@ -1816,13 +1886,14 @@ Row.prototype = {
 
       if (event.target.className === 'row-remove') {
         this.remove();
-      } else
-      if (event.target.className === 'column-add') {
+      } else if (event.target.className === 'column-add') {
 
-        if (checkEqualColumns(this.storage, 12)) { //create equal columns
+        if (checkEqualColumns(this.storage, 12)) {
+          // create equal columns
           this.addColumn();
           justifyColumns(this.storage, 12);
-        } else { //create simple column
+        } else {
+          // create simple column
           this.addColumn();
         }
       }
@@ -1836,6 +1907,12 @@ Row.prototype = {
         this.el.setAttribute(event.target.name, prefix + event.target.value);
       }
     }.bind(this), false);
+
+    this.el.addEventListener('change', function(event) {
+      if (event.target.classList.contains('row-collapse')) {
+        this.model.set({collapsed: event.target.checked})
+      }
+    }.bind(this));
   },
   render: function(data) {
     var id = this.model.get('id') || '';
@@ -1859,10 +1936,17 @@ Row.prototype = {
 
   },
   addColumn: function(options) {
-    this.storage.push(new Column(this, options));
+    var that = this;
+    var column = new Column(this, options);
+    column.on('remove', function() {
+      that.removeColumn(column);
+    });
+    this.storage.push(column);
   },
-  removeColumn: function(obj) {
-    this.storage.splice(this.storage.indexOf(obj), 1);
+  removeColumn: function(column) {
+    this.storage.splice(this.storage.indexOf(column), 1);
+    column.el.parentElement.removeChild(column.el);
+
     if (this.storage.length === 0) {
       this.remove();
     }
@@ -1905,6 +1989,6 @@ Row.prototype = {
 
 module.exports = Row;
 
-},{"./column":5,"./merge":6,"sortablejs":2,"tiny-model":3}]},{},[1])(1)
+},{"./column":6,"./merge":7,"sortablejs":3,"tiny-model":4}]},{},[1])(1)
 });
 //# sourceMappingURL=editor.js.map
