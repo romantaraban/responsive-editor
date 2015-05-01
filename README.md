@@ -4,9 +4,9 @@ WYSIWYG editor for responsive content
 
 ## Usage
 
-To create instance of editor on your page 
+To create an editor instance on your page 
 
-```
+```html
 <!-- include script on your page -->
 <script src="editor.js"></script>
 
@@ -26,7 +26,7 @@ To create instance of editor on your page
 There are several methods to work with content
 
 ### editor.serialize(toJSON)
-Serialize editor state to JSON object or string.
+Serialize editor state to JSON object or string
 
 ### editor.buildFromSerialized(data)
 Use serialzed data to build editor content
@@ -38,4 +38,4 @@ Render editor's state to html, return html string
 Render editor's state to html, and place it inside target element
 
 
-MIT © Roman Taraban
+[MIT](/LICENSE) © Roman Taraban
